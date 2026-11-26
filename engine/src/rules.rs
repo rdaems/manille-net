@@ -168,6 +168,10 @@ impl Deal {
         }
         Deal::new(hands, dealer, NOTRUMP)
     }
+    /// The cards lying in the trick in progress.
+    pub fn table(&self) -> u32 {
+        self.plays[self.plays.len() - self.n as usize..].iter().fold(0, |m, &c| m | bit(c))
+    }
     pub fn done(&self) -> bool {
         self.plays.len() == 32
     }

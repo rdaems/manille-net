@@ -5,8 +5,8 @@
 // value: card points team 0 still takes with open cards and perfect play (solve.js).
 //   node experiments/fixture.js > engine/tests/positions.txt
 import { Deal, rng, cards } from '../site/js/manille.js';
-import { know, sampler } from '../site/js/belief.js';
-import { makeSolver } from '../site/js/solve.js';
+import { know, sampler } from '../reference/belief.js';
+import { makeSolver } from '../reference/solve.js';
 const rand = rng(2026), solver = makeSolver(), u = x => x >>> 0;
 for (let g = 0; g < 400; g++) {
   const d = Deal.random(rand, g & 3);

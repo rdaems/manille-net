@@ -5,7 +5,7 @@
 // throwing a plain card on an opponent's trick shows no (higher) trump. `know` turns the
 // public history into one mask per seat of cards that seat cannot have. `sampler` then draws
 // the unseen cards uniformly over every deal that fits those masks and the hand sizes.
-import { bit, suitMask, higher, beats, count, cards, teamOf, ALL } from './manille.js';
+import { bit, suitMask, higher, beats, count, cards, teamOf, ALL } from '../site/js/manille.js';
 
 // Replays the public history. Returns
 //   cant[seat]  cards the seat cannot hold now (the played cards included)

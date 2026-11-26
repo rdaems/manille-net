@@ -125,7 +125,7 @@ fn bench() {
             solver.reset(&d.hands, d.trump, 0);
             let mut m = d.legal();
             while m != 0 {
-                solver.after(m.trailing_zeros() as u8, d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts);
+                solver.after(m.trailing_zeros() as u8, d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts, d.table());
                 m &= m - 1;
             }
             times.push(t.elapsed().as_secs_f64() * 1e3);

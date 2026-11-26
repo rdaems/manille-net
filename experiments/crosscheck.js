@@ -2,7 +2,7 @@
 // engine. Same seeds, same generator: the two must agree card for card.
 //   node experiments/crosscheck.js seed worlds
 import { rng, Deal } from '../site/js/manille.js';
-import { searchCard, searchTrump, searchDouble } from '../site/js/ai.js';
+import { searchCard, searchTrump, searchDouble } from '../reference/ai.js';
 import { playDeal } from '../site/js/game.js';
 const seed = +process.argv[2], worlds = +process.argv[3];
 const rand = rng(seed), deal = Deal.random(rng(seed + 99), seed & 3);

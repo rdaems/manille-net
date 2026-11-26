@@ -86,7 +86,7 @@ fn the_javascript_engine_agrees_on_recorded_positions() {
         let s = Sampler::new(d.turn, d.hands[d.turn as usize], &k).unwrap();
         assert_eq!(s.deals, rest[5] as f64, "deals that fit");
         solver.reset(&d.hands, trump, 0);
-        assert_eq!(solver.value(d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts) as u64, rest[6], "open-card value");
+        assert_eq!(solver.value(d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts, d.table()) as u64, rest[6], "open-card value");
     }
 }
 
@@ -123,13 +123,13 @@ fn the_solver_agrees_with_plain_minimax_on_endgames() {
         let d = play_some(&mut rng, n); // 2 to 14 cards left
         let want = brute(&mut d.hands.clone(), d.trump, d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts);
         solver.reset(&d.hands, d.trump, 0);
-        assert_eq!(solver.value(d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts), want);
+        assert_eq!(solver.value(d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts, d.table()), want);
         // and per card: the best card reaches the value, no card does better
         let (mut l, mut best) = (d.legal(), if d.turn & 1 == 0 { -1 } else { 999 });
         while l != 0 {
             let c = l.trailing_zeros() as u8;
             l &= l - 1;
-            let v = solver.after(c, d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts);
+            let v = solver.after(c, d.turn, d.n, d.led, d.win, d.win_seat, d.trick_pts, d.table());
             let mut h = d.hands;
             h[d.turn as usize] ^= bit(c);
             let takes = d.n == 0 || beats(c, d.win, d.trump);

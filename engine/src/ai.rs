@@ -66,15 +66,18 @@ impl Default for Ai {
 struct Position {
     k: Know,
     pts: i32,
+    table: u32,
     partner: bool,
     legal: u32,
 }
 fn position(v: &View) -> Position {
     let k = know(v.leader0, v.trump, v.plays);
-    let pts = v.plays[v.plays.len() - k.n as usize..].iter().map(|&c| points_of(c)).sum();
+    let trick = &v.plays[v.plays.len() - k.n as usize..];
+    let pts = trick.iter().map(|&c| points_of(c)).sum();
+    let table = trick.iter().fold(0, |m, &c| m | bit(c));
     let partner = k.n > 0 && (k.win_seat & 1) == (v.seat & 1);
     let legal = legal(v.hand, v.trump, k.n, k.led, k.win, partner);
-    Position { k, pts, partner, legal }
+    Position { k, pts, table, partner, legal }
 }
 
 impl Ai {
@@ -84,7 +87,7 @@ impl Ai {
 
     /// The card to play, and for every legal card the mean card points team 0 takes after it.
     pub fn search_card(&mut self, v: &View, o: Opts, rng: &mut Rng, values: Option<&mut Vec<(u8, f64)>>) -> u8 {
-        let Position { mut k, pts, legal, .. } = position(v);
+        let Position { mut k, pts, table, legal, .. } = position(v);
         let mut moves = [0u8; 8];
         let (mut m, mut n_moves) = (legal, 0);
         while m != 0 {
@@ -105,7 +108,7 @@ impl Ai {
             let h = draw.draw(rng);
             self.solver.reset(&h, v.trump, stop);
             for i in 0..n_moves {
-                sum[i] += self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts) as f64;
+                sum[i] += self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts, table) as f64;
             }
         }
         // team 1 wants team 0 to take as little as possible
@@ -143,7 +146,7 @@ impl Ai {
             total += weight;
             for (i, &trump) in list.iter().enumerate() {
                 self.solver.reset(&h, trump, o.stop);
-                let p0 = self.solver.value(lead, 0, NONE, NONE, NONE, 0);
+                let p0 = self.solver.value(lead, 0, NONE, NONE, NONE, 0, 0);
                 let worth = if team == 0 { p0 - 30 } else { 30 - p0 } as f64;
                 mean[i] += weight * worth;
                 if worth > 0.0 {

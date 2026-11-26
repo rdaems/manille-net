@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { legal, beats, Deal, rng, cards, bit, count, teamOf, ALL } from '../site/js/manille.js';
-import { know, sampler } from '../site/js/belief.js';
+import { know, sampler } from '../reference/belief.js';
 
 // Would `hands` (as they are now) have been allowed to play this history?
 function fits(hands, leader0, trump, plays) {

@@ -2,7 +2,7 @@
 // teams play perfectly. Alpha-beta over the cards, with a table of positions at the trick
 // boundaries. For one deal the cards that are left and the seat to lead fix such a position,
 // so the key is that mask and that seat; the table is only valid for the deal it was built on.
-import { POINTS, suitMask, legal, beats, maskPoints, count } from './manille.js';
+import { POINTS, suitMask, legal, beats, maskPoints, count } from '../site/js/manille.js';
 
 export function makeSolver() {
   const tt = new Map();

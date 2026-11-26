@@ -3,7 +3,7 @@
 // points above 30, searchDouble) and what its side then took.
 //   node experiments/doubling.js deals seed [worlds] > outputs/doubling-<seed>.json
 import { rng, Deal } from '../site/js/manille.js';
-import { searchCard, searchTrump, searchDouble } from '../site/js/ai.js';
+import { searchCard, searchTrump, searchDouble } from '../reference/ai.js';
 import { playDeal } from '../site/js/game.js';
 const [n = '100', seed = '1', worlds = '12'] = process.argv.slice(2);
 const rand = rng(+seed + 5000), cardsRand = rng(+seed + 7000), rows = [];

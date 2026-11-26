@@ -10,31 +10,42 @@ after. Server side: `~/docker/notes/manillen.md`. The map of `~/research`: `../C
 - `site/` is **the live docroot of manillen.daems.me**, which is public (nginx, read-only
   mount): a save there is on the internet at once. Test first: `npm test`, then the browser rig `~/.cache/manillen-shots/play.py`
   (it plays whole deals on the live site, which has no state but the visitor's localStorage).
-- `site/js/` is one JavaScript engine for the browser and for node: there is no second
-  implementation of the rules, on purpose.
-  - `manille.js`: cards as integers, hands as 32-bit masks, `legal`, `Deal`, `dealScore`.
-  - `belief.js`: `know` (per seat, the cards it cannot hold, read off the forced plays) and
-    `sampler` (the hidden hands, exactly uniform over everything that fits; no rejection).
-  - `solve.js`: open-card alpha-beta, table keyed on (cards left, seat to lead).
-  - `ai.js`: `search` = draw deals, solve each, play the best card on average; the same for
-    the trump choice and for meegaan/tegengaan. Baselines `thumb` and `random`.
-  - `game.js`: a deal from the trump choice to the score. `ui.js`, `worker.js`: the page.
+- **`engine/` is the engine, in Rust** (no dependencies): `rules.rs` (cards as integers,
+  hands as 32-bit masks, `legal`, `Deal`), `belief.rs` (`know`: per seat the cards it cannot
+  hold, read off the forced plays; `Sampler`: the hidden hands, exactly uniform over everything
+  that fits, no rejection), `solve.rs` (open-card alpha-beta, table keyed on cards left and
+  seat to lead), `ai.rs` (`search`: draw deals, solve each, play the best card on average; the
+  same for trump and meegaan/tegengaan; baselines `thumb` and `random`), `wasm.rs` (the page's
+  interface), `main.rs` (`manille match | deal | bench`).
+- `engine/build.sh` runs the tests and builds three things: the local binary, the static one
+  for hippo (`bin/manille`, not in git) and **`site/manille.wasm`, which is in git and live
+  the moment it is built**. So: test before building.
+- The page (`site/js/ui.js`, `game.js`, `manille.js`) keeps its own small copy of the rules
+  in JavaScript, for showing which cards are allowed; `worker.js` calls the WebAssembly engine.
+- `reference/` is the first AI, in JavaScript, frozen. Rembert found it far too slow
+  ("implementeer dat toch in rust ofzo"), so the engine was ported on 2026-11-27 and checked
+  against it: `manille deal <seed> <worlds>` and `node experiments/crosscheck.js <seed> <worlds>`
+  must print the same deal card for card (the `search` player keeps the JavaScript settings
+  for that reason), and `engine/tests/positions.txt` holds 400 positions the two agree on.
+  Do not develop the JavaScript AI further.
 - `RULES.md`: the rules and their sources. The lines marked **choice** are house rules that
   Rembert decides; do not change one without him.
-- `experiments/tournament.js A B deals seed`: duplicate matches (same cards, sides swapped).
-  `outputs/` is not in git.
+- `outputs/` (match results) is not in git.
 - The page is in Dutch (players are Flemish). Code, comments and notes in English.
 
 ## Compute
 
-odyssey is slow (a full solve is about 80 ms, one searched deal several seconds). Matches of
-more than a few dozen deals go to hippo: it has no node of its own, so one lives in
-`.cache/node` of the working copy there (`.cache` is never synced):
+Matches run on hippo, on all its cores, with the static binary (hippo has no Rust):
 
 ```bash
-../bin/hippo run t1 .cache/node/bin/node experiments/tournament.js search:30 thumb 200 1
-../bin/hippo log t1 ; ../bin/hippo pull
+engine/build.sh
+../bin/hippo sh bin/manille match search:30 thumb 1000 1 > outputs/x.json     # or `hippo run` for long ones
 ```
+
+Speed as measured on 2026-11-27: 240 deals of `search:30` against `thumb` take 23 s on hippo
+(the JavaScript version: 340 s). A full 32-card solve of every legal card is about 20 ms on
+odyssey. What is still slow is the first trick; the real gain there is a value estimate that
+replaces deep search, which is the job of the net.
 
 ## Rules
 

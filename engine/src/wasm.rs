@@ -19,19 +19,19 @@ pub extern "C" fn plays_ptr() -> *mut u8 {
 pub extern "C" fn card(seat: u32, hand: u32, dealer: u32, trump: u32, n: u32, worlds: u32, seed: u32) -> u32 {
     let plays = PLAYS.with(|p| *p.borrow());
     let v = View { seat: seat as u8, hand, dealer: dealer as u8, trump: trump as u8, leader0: (dealer as u8 + 1) & 3, plays: &plays[..n as usize] };
-    AI.with(|ai| ai.borrow_mut().search_card(&v, Opts::exact(worlds), &mut Rng::new(seed), None)) as u32
+    AI.with(|ai| ai.borrow_mut().search_card(&v, Opts::js(worlds), &mut Rng::new(seed), None)) as u32
 }
 
 /// The trump the dealer names (4 = none).
 #[no_mangle]
 pub extern "C" fn trump(seat: u32, hand: u32, worlds: u32, seed: u32) -> u32 {
     let v = View { seat: seat as u8, hand, dealer: seat as u8, trump: 4, leader0: (seat as u8 + 1) & 3, plays: &[] };
-    AI.with(|ai| ai.borrow_mut().search_trump(&v, Opts::exact(worlds), &mut Rng::new(seed))) as u32
+    AI.with(|ai| ai.borrow_mut().search_trump(&v, Opts::js(worlds), &mut Rng::new(seed))) as u32
 }
 
 /// 1 when `seat` goes along (or against, on the dealer's side).
 #[no_mangle]
 pub extern "C" fn double(seat: u32, hand: u32, dealer: u32, trump: u32, worlds: u32, seed: u32) -> u32 {
     let v = View { seat: seat as u8, hand, dealer: dealer as u8, trump: trump as u8, leader0: (dealer as u8 + 1) & 3, plays: &[] };
-    AI.with(|ai| ai.borrow_mut().search_double(&v, Opts::exact(worlds), &mut Rng::new(seed))) as u32
+    AI.with(|ai| ai.borrow_mut().search_double(&v, Opts::js(worlds), &mut Rng::new(seed))) as u32
 }

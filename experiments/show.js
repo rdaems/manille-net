@@ -1,7 +1,7 @@
 // One deal between search players, written out card by card with what the player to move
 // believed each legal card was worth.   node experiments/show.js [seed] [worlds]
 import { rng, cards, cardName, SUITS, NOTRUMP, Deal } from '../site/js/manille.js';
-import { searchCard, searchTrump, searchDouble } from '../site/js/ai.js';
+import { searchCard, searchTrump, searchDouble } from '../reference/ai.js';
 import { playDeal } from '../site/js/game.js';
 const seed = +(process.argv[2] || 1), worlds = +(process.argv[3] || 30);
 const rand = rng(seed), deal = Deal.random(rng(seed + 99), seed & 3);

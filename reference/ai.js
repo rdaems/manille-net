@@ -5,7 +5,7 @@
 // (belief.js), solves each of them with open cards (solve.js), and plays the card that is
 // best on average. The same draw-and-solve answers the dealer's question (which trump?) and
 // the doubling questions (meegaan? tegengaan?).
-import { cards, legal, teamOf, pointsOf, suitMask, count, maskPoints, NOTRUMP } from './manille.js';
+import { cards, legal, teamOf, pointsOf, suitMask, count, maskPoints, NOTRUMP } from '../site/js/manille.js';
 import { know, sampler } from './belief.js';
 import { makeSolver } from './solve.js';
 

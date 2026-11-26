@@ -9,12 +9,6 @@ const WHO = ['Jij', 'Links', 'Maat', 'Rechts'];
 const SUIT = ['schoppen', 'harten', 'klaveren', 'ruiten'];
 const TARGET = 121;
 const OFFER_MS = 5000;                                  // how long the doubling button stays
-const THINK = {                                          // how long and how wide the AI may think
-  card: { worlds: 60, ms: 900, min: 8 },
-  trump: { worlds: 24, ms: 1500, min: 6, stop: 16 },
-  double: { worlds: 40, ms: 900, min: 10, stop: 16 },
-};
-
 const suitSvg = s => `<svg viewBox="0 0 32 32" aria-hidden="true"><use href="#s${s}"/></svg>`;
 function cardEl(c, tag = 'div') {
   const el = document.createElement(tag), s = c >> 3, r = c & 7;
@@ -32,7 +26,7 @@ worker.onmessage = e => { waiting.get(e.data.id)(e.data.result); waiting.delete(
 worker.onerror = e => { $('#status').textContent = 'De computer is vastgelopen. Herlaad de pagina.'; console.error(e); };
 const think = (what, view) => new Promise(resolve => {
   waiting.set(nextId, resolve);
-  worker.postMessage({ id: nextId++, what, view: { ...view, hand: view.hand, plays: view.plays.slice() }, opts: THINK[what] });
+  worker.postMessage({ id: nextId++, what, view: { ...view, plays: view.plays.slice() } });
 });
 
 // ---- what is kept between visits -----------------------------------------------------------

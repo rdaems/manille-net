@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { legal, beats, Deal, rng, cards, bit, pointsOf, teamOf } from '../site/js/manille.js';
-import { makeSolver } from '../site/js/solve.js';
+import { makeSolver } from '../reference/solve.js';
 
 // Plain minimax without any shortcut, on a copy of the deal.
 function brute(hands, trump, turn, n, led, win, ws, pts) {

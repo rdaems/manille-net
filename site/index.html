@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#273035">
+<title>Manillen</title>
+<link rel="preload" href="fonts/caveat.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="s0" viewBox="0 0 32 32"><path d="M16 2C28 12 30 17.5 30 21a7 7 0 0 1-12.6 4.2c.3 2 1.1 3.6 2.9 4.8h-8.6c1.8-1.2 2.6-2.8 2.9-4.800A7 7 0 0 1 2 21C2 17.5 4 12 16 2z"/></symbol>
+  <symbol id="s1" viewBox="0 0 32 32"><path d="M16 29C4 19 2 13.5 2 10.200a7.2 7.2 0 0 1 14-2.4 7.2 7.2 0 0 1 14 2.400C30 13.5 28 19 16 29z"/></symbol>
+  <symbol id="s2" viewBox="0 0 32 32"><circle cx="16" cy="9" r="6.4"/><circle cx="8.6" cy="19" r="6.4"/><circle cx="23.4" cy="19" r="6.4"/><circle cx="16" cy="16.5" r="3.5"/><path d="M16 17c-.3 6.5-1.3 10.4-4.3 13h8.600c-3-2.6-4-6.5-4.3-13z"/></symbol>
+  <symbol id="s3" viewBox="0 0 32 32"><path d="M16 1.5 28 16 16 30.5 4 16z"/></symbol>
+</svg>
+
+<main id="table">
+  <header>
+    <button id="score" aria-label="Scorebord openen">
+      <span class="side"><small>wij</small><b id="us">0</b></span>
+      <span id="contract"></span>
+      <span class="side"><b id="them">0</b><small>zij</small></span>
+    </button>
+  </header>
+
+  <section id="north" class="seat" data-seat="2"><div class="who">Maat</div><div class="backs"></div><div class="say"></div></section>
+  <section id="west" class="seat" data-seat="1"><div class="who">Links</div><div class="backs"></div><div class="say"></div></section>
+  <section id="east" class="seat" data-seat="3"><div class="who">Rechts</div><div class="backs"></div><div class="say"></div></section>
+
+  <section id="middle">
+    <div id="trick"></div>
+    <div id="taken"></div>
+  </section>
+
+  <p id="status" role="status" aria-live="polite"></p>
+  <section id="south" class="seat" data-seat="0"><div class="say"></div><div id="hand"></div></section>
+
+  <nav>
+    <button id="lastBtn" hidden>Vorige slag</button>
+    <button id="rulesBtn">Regels</button>
+  </nav>
+</main>
+
+<dialog id="ask"><div class="slate"></div></dialog>
+<dialog id="sheet"><div class="slate"></div></dialog>
+
+<script type="module" src="js/ui.js"></script>
+</body>
+</html>

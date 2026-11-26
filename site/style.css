@@ -45,7 +45,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 }
 
 #table {
-  width: var(--tw); height: 100%; min-height: 560px; margin: 0 auto; position: relative;
+  width: var(--tw); height: 100vh; height: 100dvh; min-height: 560px; margin: 0 auto; position: relative;
   display: grid;
   grid-template: "head head head" auto "north north north" auto "west middle east" 1fr
                  "status status status" auto "south south south" auto "nav nav nav" auto / auto 1fr auto;

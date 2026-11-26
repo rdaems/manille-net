@@ -4,3 +4,5 @@ runs/
 node_modules/
 engine/target/
 bin/
+data/
+nets/try*/

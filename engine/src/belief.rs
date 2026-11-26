@@ -13,6 +13,9 @@ pub struct Know {
     pub played: u32,
     /// Cards the seat still holds.
     pub left: [u8; 4],
+    /// The cards each seat has played, and the one it has in the trick in progress (or NONE).
+    pub by: [u32; 4],
+    pub on_table: [u8; 4],
     // the trick in progress
     pub turn: u8,
     pub n: u8,
@@ -23,7 +26,7 @@ pub struct Know {
 
 /// Replays the public history.
 pub fn know(leader0: u8, trump: u8, plays: &[u8]) -> Know {
-    let (mut cant, mut left) = ([0u32; 4], [8u8; 4]);
+    let (mut cant, mut left, mut by, mut on_table) = ([0u32; 4], [8u8; 4], [0u32; 4], [NONE; 4]);
     let t = suit_mask(trump);
     let (mut played, mut leader, mut n, mut led, mut win, mut win_seat) = (0u32, leader0, 0u8, NONE, NONE, NONE);
     for &c in plays {
@@ -60,9 +63,12 @@ pub fn know(leader0: u8, trump: u8, plays: &[u8]) -> Know {
             }
         }
         played |= bit(c);
+        by[me] |= bit(c);
+        on_table[me] = c;
         left[me] -= 1;
         n += 1;
         if n == 4 {
+            on_table = [NONE; 4];
             leader = win_seat;
             n = 0;
             led = NONE;
@@ -73,7 +79,7 @@ pub fn know(leader0: u8, trump: u8, plays: &[u8]) -> Know {
     for c in cant.iter_mut() {
         *c |= played;
     }
-    Know { cant, played, left, turn: (leader + n) & 3, n, led, win, win_seat }
+    Know { cant, played, left, by, on_table, turn: (leader + n) & 3, n, led, win, win_seat }
 }
 
 fn fact(n: usize) -> f64 {

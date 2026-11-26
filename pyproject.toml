@@ -1,0 +1,12 @@
+# The Python side is only the trainer (train/), which runs on hippo: `../bin/hippo setup --python 3.12`.
+# The engine itself is Rust (engine/) and needs none of this.
+[project]
+name = "manille-net-train"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "jax[cuda12]==0.10.1",
+    "optax",
+    "numpy",
+    "matplotlib",
+]

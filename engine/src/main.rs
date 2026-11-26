@@ -2,6 +2,8 @@
 //!                                          sides swapped, all cores; JSON on stdout
 //! manille deal seed worlds                 one deal between search players, as the
 //!                                          JavaScript version plays it (cross-check)
+//! manille selfplay deals seed worlds dir   search players against themselves, every
+//!                                          decision written to dir/{cards,trumps,doubles}.bin
 //! manille bench                            how fast the solver is
 use manille_engine::ai::{play_deal, Ai, Opts, Player};
 use manille_engine::rules::*;
@@ -9,6 +11,8 @@ use manille_engine::solve::Solver;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
+
+mod selfplay;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -18,9 +22,13 @@ fn main() {
             let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
             run_match(&arg(1, "search:30"), &arg(2, "thumb"), arg(3, "100").parse().unwrap(), arg(4, "1").parse().unwrap(), arg(5, &threads.to_string()).parse().unwrap());
         }
+        Some("selfplay") => {
+            let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+            selfplay::run(arg(1, "1000").parse().unwrap(), arg(2, "1").parse().unwrap(), Opts::js(arg(3, "30").parse().unwrap()), &arg(4, "data/run"), arg(5, &threads.to_string()).parse().unwrap());
+        }
         Some("deal") => one_deal(arg(1, "1").parse().unwrap(), arg(2, "30").parse().unwrap()),
         Some("bench") => bench(),
-        _ => eprintln!("manille match A B deals seed [threads] | deal seed worlds | bench"),
+        _ => eprintln!("manille match A B deals seed [threads] | selfplay deals seed worlds dir [threads] | deal seed worlds | bench"),
     }
 }
 
@@ -35,15 +43,20 @@ fn run_match(spec_a: &str, spec_b: &str, deals: usize, seed: u32, threads: usize
     let a = Player::parse(spec_a).expect("unknown player A");
     let b = Player::parse(spec_b).expect("unknown player B");
     let next = AtomicUsize::new(0);
+    // the networks of the `belief` player: the directory the trainer wrote
+    let nets = std::env::var("MANILLE_NETS").unwrap_or("nets/current".to_string());
+    let ess: Mutex<Vec<(f64, u64)>> = Mutex::new(Vec::new());
     let rows: Mutex<Vec<(usize, [u32; 4], [Half; 2])>> = Mutex::new(Vec::new());
     let t0 = Instant::now();
     std::thread::scope(|scope| {
         for _ in 0..threads {
             scope.spawn(|| {
                 let mut ai = Ai::new();
+                ai.nets = manille_engine::net::Nets::load(&nets);
                 loop {
                     let g = next.fetch_add(1, Ordering::Relaxed);
                     if g >= deals {
+                        ess.lock().unwrap().push(ai.ess);
                         break;
                     }
                     // every deal has its own generators, so the result does not depend on the threads
@@ -70,6 +83,10 @@ fn run_match(spec_a: &str, spec_b: &str, deals: usize, seed: u32, threads: usize
     let secs = t0.elapsed().as_secs_f64();
     eprintln!("{} deals: {} takes {:.2} ± {:.2} of 60 against {}; {:.1} s, {:.0} deals per second on {} threads",
         deals, spec_a, m + 30.0, sd / (d.len() as f64).sqrt(), spec_b, secs, deals as f64 / secs, threads);
+    let (e, n) = ess.into_inner().unwrap().iter().fold((0.0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
+    if n > 0 {
+        eprintln!("weighted decisions: {n}, effective number of deals {:.1} on average", e / n as f64);
+    }
     let half = |h: &Half| format!("{{\"trump\":{},\"mult\":{},\"pointsA\":{},\"score\":{}}}", h.trump, h.mult, h.points_a, h.score);
     let body: Vec<String> = rows.iter().map(|(g, hands, h)| format!("{{\"dealer\":{},\"hands\":[{},{},{},{}],\"a\":{},\"b\":{}}}", g & 3, hands[0], hands[1], hands[2], hands[3], half(&h[0]), half(&h[1]))).collect();
     println!("{{\"a\":\"{}\",\"b\":\"{}\",\"seed\":{},\"rows\":[{}]}}", spec_a, spec_b, seed, body.join(","));

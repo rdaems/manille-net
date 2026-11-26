@@ -4,6 +4,8 @@
 //! open cards (solve), and plays the card that is best on average. The same draw-and-solve
 //! answers the dealer's question (which trump?) and the doubling questions.
 use crate::belief::{know, Know, Sampler};
+use crate::features::features;
+use crate::net::Nets;
 use crate::rules::*;
 use crate::solve::Solver;
 
@@ -17,16 +19,19 @@ pub struct Opts {
     pub stop: u32,
     /// The solver's `stop` for the opening lead.
     pub stop_lead: u32,
+    /// Weigh every drawn deal by how likely the trump named and the cards played so far are
+    /// under it, according to the networks, to this power (0 = all deals count the same).
+    pub belief: f32,
 }
 impl Opts {
     /// As the JavaScript version played: the opening lead and the contracts are not solved
     /// to the end but valued by a playout from 16 cards on.
     pub fn js(worlds: u32) -> Self {
-        Opts { worlds, blind: false, stop: 16, stop_lead: 16 }
+        Opts { worlds, blind: false, stop: 16, stop_lead: 16, belief: 0.0 }
     }
     /// Everything solved to the last card.
     pub fn exact(worlds: u32) -> Self {
-        Opts { worlds, blind: false, stop: 0, stop_lead: 0 }
+        Opts { worlds, blind: false, stop: 0, stop_lead: 0, belief: 0.0 }
     }
 }
 
@@ -55,6 +60,9 @@ pub struct Contract {
 
 pub struct Ai {
     pub solver: Solver,
+    pub nets: Option<Nets>,
+    /// Over the weighted decisions so far: the sum of the effective numbers of deals, and how many.
+    pub ess: (f64, u64),
 }
 
 impl Default for Ai {
@@ -80,9 +88,48 @@ fn position(v: &View) -> Position {
     Position { k, pts, table, partner, legal }
 }
 
+/// The public history as each earlier player saw it, so that a supposed deal can be asked:
+/// would these players, holding those cards, have named this trump and played these cards?
+struct History {
+    /// For every card played by somebody else: who, which card, what was known just before.
+    steps: Vec<(u8, u8, Know)>,
+}
+
+impl History {
+    fn new(v: &View) -> History {
+        let mut steps = Vec::new();
+        for t in 0..v.plays.len() {
+            let k = know(v.leader0, v.trump, &v.plays[..t]);
+            if k.turn != v.seat {
+                steps.push((k.turn, v.plays[t], k));
+            }
+        }
+        History { steps }
+    }
+
+    /// log P(trump named, cards played | the hands `h` as they are now), by the networks.
+    fn log_likelihood(&self, h: &[u32; 4], v: &View, nets: &mut Nets) -> f64 {
+        let now = know(v.leader0, v.trump, v.plays);
+        let mut ll = 0.0;
+        if v.dealer != v.seat {
+            let dealt = h[v.dealer as usize] | now.by[v.dealer as usize];
+            ll += nets.trump_logp(dealt, v.trump) as f64;
+        }
+        for (seat, card, k) in &self.steps {
+            // the hand that seat held then: what it holds now and what it has played since
+            let hand = h[*seat as usize] | (now.by[*seat as usize] & !k.by[*seat as usize]);
+            let f = features(*seat, hand, v.dealer, v.trump, k);
+            if f.words[11].count_ones() > 1 {
+                ll += nets.card_logp(&f, *card) as f64;
+            }
+        }
+        ll
+    }
+}
+
 impl Ai {
     pub fn new() -> Self {
-        Ai { solver: Solver::new() }
+        Ai { solver: Solver::new(), nets: None, ess: (0.0, 0) }
     }
 
     /// The card to play, and for every legal card the mean card points team 0 takes after it.
@@ -104,11 +151,42 @@ impl Ai {
         let mut draw = Sampler::new(v.seat, v.hand, &k).expect("the truth fits, so something fits");
         let mut sum = [0f64; 8];
         let stop = if v.plays.is_empty() { o.stop_lead } else { 0 };
-        for _ in 0..o.worlds {
-            let h = draw.draw(rng);
-            self.solver.reset(&h, v.trump, stop);
-            for i in 0..n_moves {
-                sum[i] += self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts, table) as f64;
+        if o.belief > 0.0 && self.nets.is_some() {
+            // every deal gets its values and its log-likelihood; the weights follow at the end
+            let seen = History::new(v);
+            let (mut vals, mut logw) = (Vec::with_capacity(o.worlds as usize), Vec::with_capacity(o.worlds as usize));
+            for _ in 0..o.worlds {
+                let h = draw.draw(rng);
+                logw.push(o.belief as f64 * seen.log_likelihood(&h, v, self.nets.as_mut().unwrap()));
+                self.solver.reset(&h, v.trump, stop);
+                let mut x = [0f64; 8];
+                for i in 0..n_moves {
+                    x[i] = self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts, table) as f64;
+                }
+                vals.push(x);
+            }
+            let top = logw.iter().cloned().fold(f64::MIN, f64::max);
+            let (mut total, mut squares) = (0.0, 0.0);
+            for (x, lw) in vals.iter().zip(&logw) {
+                let w = (lw - top).exp();
+                total += w;
+                squares += w * w;
+                for i in 0..n_moves {
+                    sum[i] += w * x[i];
+                }
+            }
+            for s in sum.iter_mut() {
+                *s *= o.worlds as f64 / total; // on the scale of the unweighted sum
+            }
+            self.ess.0 += total * total / squares;
+            self.ess.1 += 1;
+        } else {
+            for _ in 0..o.worlds {
+                let h = draw.draw(rng);
+                self.solver.reset(&h, v.trump, stop);
+                for i in 0..n_moves {
+                    sum[i] += self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts, table) as f64;
+                }
             }
         }
         // team 1 wants team 0 to take as little as possible
@@ -158,15 +236,7 @@ impl Ai {
     }
 
     pub fn search_trump(&mut self, v: &View, o: Opts, rng: &mut Rng) -> u8 {
-        let c = self.contracts(v, &[0, 1, 2, 3, NOTRUMP], o, rng);
-        let value = |x: &Contract| x.mean * if x.trump == NOTRUMP { 2.0 } else { 1.0 }; // no trump counts double
-        let mut best = &c[0];
-        for x in &c {
-            if value(x) > value(best) {
-                best = x;
-            }
-        }
-        best.trump
+        pick_trump(&self.contracts(v, &[0, 1, 2, 3, NOTRUMP], o, rng))
     }
 
     /// Meegaan (an opponent of the dealer doubles) or tegengaan (the dealer's side doubles back).
@@ -174,9 +244,7 @@ impl Ai {
     /// players (2026-11-26) an opponent who believed in +4 to +12 ended around -1; from +12 on
     /// it paid. After such a meegaan the dealer's side lost 4 deals in 5: the same high bar.
     pub fn search_double(&mut self, v: &View, o: Opts, rng: &mut Rng) -> bool {
-        let c = &self.contracts(v, &[v.trump], o, rng)[0];
-        let back = (v.seat & 1) == (v.dealer & 1);
-        c.mean >= 12.0 && c.win >= if back { 0.9 } else { 0.85 }
+        double_rule(&self.contracts(v, &[v.trump], o, rng)[0], (v.seat & 1) == (v.dealer & 1))
     }
 
     /// The first card of the solver's search order: lead high, win when you can, feed your
@@ -195,6 +263,23 @@ impl Ai {
     }
 }
 
+/// The contract worth most; no trump counts double.
+pub fn pick_trump(c: &[Contract]) -> u8 {
+    let value = |x: &Contract| x.mean * if x.trump == NOTRUMP { 2.0 } else { 1.0 };
+    let mut best = &c[0];
+    for x in c {
+        if value(x) > value(best) {
+            best = x;
+        }
+    }
+    best.trump
+}
+
+/// Go along (or, on the dealer's side, against) from +12 card points on.
+pub fn double_rule(c: &Contract, back: bool) -> bool {
+    c.mean >= 12.0 && c.win >= if back { 0.9 } else { 0.85 }
+}
+
 /// Who sits on a chair.
 #[derive(Clone, Copy)]
 pub enum Player {
@@ -206,11 +291,15 @@ pub enum Player {
 }
 
 impl Player {
-    /// "search:30", "exact:30" (no playouts), "blind:30", "thumb", "random".
+    /// "search:30", "exact:30" (no playouts), "blind:30", "belief:30" or "belief:30:0.5" (deals
+    /// weighed by the networks, to that power), "thumb", "random".
     pub fn parse(spec: &str) -> Option<Player> {
-        let (name, w) = spec.split_once(':').unwrap_or((spec, "30"));
-        let w: u32 = w.parse().ok()?;
+        let mut parts = spec.split(':');
+        let name = parts.next()?;
+        let w: u32 = parts.next().unwrap_or("30").parse().ok()?;
+        let power: f32 = parts.next().unwrap_or("1").parse().ok()?;
         Some(match name {
+            "belief" => Player::Search(Opts { belief: power, ..Opts::js(w) }),
             "search" => Player::Search(Opts::js(w)),
             "exact" => Player::Search(Opts::exact(w)),
             "blind" => Player::Search(Opts { blind: true, ..Opts::js(w) }),

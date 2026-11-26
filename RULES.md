@@ -7,8 +7,8 @@ are house rules, and Rembert decides them.
 
 ## Cards
 
-32 cards, 7 to ace in four suits. Strength in a suit: 10 (the manille), A, H, D, B, 9, 8, 7.
-Points: 10 = 5, A = 4, H = 3, D = 2, B = 1, the rest 0. That is 60 in the pack. No points for
+32 cards, 7 to ace in four suits. Strength in a suit: 10 (the manille), A, R, D, V, 9, 8, 7 (roi, dame, valet: the cards carry
+the French letters). Points: 10 = 5, A = 4, R = 3, D = 2, V = 1, the rest 0. That is 60 in the pack. No points for
 tricks.
 
 ## The deal
@@ -24,6 +24,7 @@ dealer's side may then go against (*tegengaan*): double again.
   dealer, then his partner. One meegaan and one tegengaan at most.
 - **choice**: the multipliers multiply (no trump 2 × meegaan 2 × tegengaan 2 = 8, pagat's
   reading). Wikipedia caps a deal at × 4 and has no tegengaan without trump.
+- Rembert confirmed these choices on 2026-11-26 ("that's about it").
 - Not played: blinde mull, en face (the dealer's partner chooses), eeuwig kloppen, redeals.
 
 ## What may be played
@@ -44,4 +45,4 @@ dealer's side may then go against (*tegengaan*): double again.
 The side with more than 30 card points scores what it has above 30, times the multiplier of
 the deal; the other side scores nothing. All eight tricks: 60 instead of 30. At 30-30 nobody
 scores and the next deal counts double (**choice**: pagat's rule; Wikipedia has it as a café
-rule). First to 101 wins the game (the *boom*).
+rule). First to 121 wins the game (the *boom*; Rembert's number, the sources say 101).

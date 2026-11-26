@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#273035">
 <title>Manillen</title>
-<link rel="preload" href="fonts/caveat.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/bitter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,10 +32,12 @@
 
   <section id="middle">
     <div id="trick"></div>
-    <div id="taken"></div>
   </section>
 
-  <p id="status" role="status" aria-live="polite"></p>
+  <div id="line">
+    <p id="status" role="status" aria-live="polite"></p>
+    <button id="offer" hidden><span></span><i></i></button>
+  </div>
   <section id="south" class="seat" data-seat="0"><div class="say"></div><div id="hand"></div></section>
 
   <nav>

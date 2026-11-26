@@ -3,12 +3,12 @@
 //
 // A card is an integer c = 8 * suit + rank. The rank is the strength inside the suit:
 //   rank   0  1  2  3  4  5  6  7
-//   card   7  8  9  B  D  H  A  10      (10 = the manille, A = the manillon)
+//   card   7  8  9  V  D  R  A  10      (valet, dame, roi: the French letters; 10 = the manille)
 //   points 0  0  0  1  2  3  4  5       60 in the pack
 // A hand is a 32-bit mask of cards. Seats run clockwise 0 1 2 3; seats 0 and 2 are team 0.
 
 export const SUITS = ['♠', '♥', '♣', '♦'];
-export const RANKS = ['7', '8', '9', 'B', 'D', 'H', 'A', '10'];
+export const RANKS = ['7', '8', '9', 'V', 'D', 'R', 'A', '10'];
 export const POINTS = [0, 0, 0, 1, 2, 3, 4, 5];
 export const NOTRUMP = 4;
 export const ALL = -1;                                   // all 32 cards

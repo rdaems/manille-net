@@ -1,5 +1,5 @@
 // The table: you sit at the bottom (seat 0), your partner opposite, an AI on every other chair.
-import { Deal, cards, bit, legal, teamOf, pointsOf, suitMask, higher, rng, NOTRUMP, RANKS, POINTS } from './manille.js';
+import { Deal, cards, bit, teamOf, suitMask, rng, NOTRUMP, RANKS, POINTS } from './manille.js';
 import { playDeal } from './game.js';
 
 const $ = s => document.querySelector(s);
@@ -7,7 +7,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const quick = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const WHO = ['Jij', 'Links', 'Maat', 'Rechts'];
 const SUIT = ['schoppen', 'harten', 'klaveren', 'ruiten'];
-const TARGET = 101;
+const TARGET = 121;
+const OFFER_MS = 5000;                                  // how long the doubling button stays
 const THINK = {                                          // how long and how wide the AI may think
   card: { worlds: 60, ms: 900, min: 8 },
   trump: { worlds: 24, ms: 1500, min: 6, stop: 16 },
@@ -36,8 +37,8 @@ const think = (what, view) => new Promise(resolve => {
 
 // ---- what is kept between visits -----------------------------------------------------------
 const KEY = 'manillen-1';
-let game = { score: [0, 0], deals: [], dealer: Math.floor(Math.random() * 4), carry: 1 };
-try { const g = JSON.parse(localStorage.getItem(KEY)); if (g && g.score) game = g; } catch {}
+let game = { score: [0, 0], deals: [], dealer: Math.floor(Math.random() * 4), carry: 1, games: [] };
+try { const g = JSON.parse(localStorage.getItem(KEY)); if (g && g.score) game = { games: [], ...g }; } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(game)); } catch {} };
 
 // ---- drawing -------------------------------------------------------------------------------
@@ -62,6 +63,7 @@ function sortHand(mask) {
 function drawHand() {
   const el = $('#hand');
   el.replaceChildren(...sortHand(deal.hands[0]).map(c => cardEl(c, 'button')));
+  markPre();
 }
 function drawBacks() {
   for (const seat of [1, 2, 3]) {
@@ -75,9 +77,6 @@ function drawSeats() {
     el.classList.toggle('dealer', +el.dataset.seat === deal.dealer && el.dataset.seat !== '0');
     el.classList.toggle('turn', trumpKnown && !deal.done && +el.dataset.seat === deal.turn);
   });
-}
-function drawTaken() {
-  $('#taken').textContent = deal.plays.length >= 4 ? `dit spel: wij ${deal.points[0]}, zij ${deal.points[1]}` : '';
 }
 const status = t => { $('#status').textContent = t; };
 
@@ -110,15 +109,17 @@ async function yourTrump() {
   return +v;
 }
 
-async function yourDouble(view) {
-  const back = teamOf(view.dealer) === 0;
-  const what = view.trump === NOTRUMP ? 'zonder troef' : `${SUIT[view.trump]} troef`;
-  const v = await askDialog(back
-    ? `<h2>Ga je tegen?</h2><p>Zij gaan mee. Als je tegengaat telt dit spel ×${view.mult * 2}.</p>
-       <div class="row"><button class="btn main" data-v="1">Tegengaan</button><button class="btn" data-v="0">Laten</button></div>`
-    : `<h2>Ga je mee?</h2><p>${WHO[view.dealer]} speelt ${what}. Als je meegaat telt dit spel ×${view.mult * 2}.</p>
-       <div class="row"><button class="btn main" data-v="1">Meegaan</button><button class="btn" data-v="0">Passen</button></div>`);
-  return v === '1';
+// Meegaan or tegengaan: a button that is there for a few seconds. Not pressing it is the answer no.
+function yourDouble(view) {
+  const el = $('#offer'), back = teamOf(view.dealer) === 0;
+  el.firstElementChild.textContent = back ? 'Ga tegen (dubbel)' : 'Ga mee (dubbel)';
+  el.style.setProperty('--ms', OFFER_MS + 'ms');
+  status(''); el.hidden = false;
+  return new Promise(resolve => {
+    const done = v => { clearTimeout(timer); el.hidden = true; el.onclick = null; resolve(v); };
+    const timer = setTimeout(() => done(false), OFFER_MS);
+    el.onclick = () => done(true);
+  });
 }
 
 // Why a card may not be played, in the words of the rule.
@@ -134,25 +135,38 @@ function why(card) {
   return 'Je moet troef spelen.';
 }
 
-function yourCard() {
+// Your cards. On your turn a tap plays the card. Before your turn a tap sets a card ready
+// (a pre-move): it is played the moment the turn comes, if the rules allow it by then.
+let pre = -1, choosing = null;
+function markPre() {
+  for (const c of $('#hand').children) c.classList.toggle('pre', +c.dataset.c === pre);
+}
+$('#hand').onclick = e => {
+  const b = e.target.closest('.card');
+  if (!b || !deal || !trumpKnown) return;
+  const c = +b.dataset.c;
+  if (!choosing) { pre = pre === c ? -1 : c; markPre(); return; }
+  if (!(choosing.ok & bit(c))) {
+    status(why(c)); b.classList.remove('no'); void b.offsetWidth; b.classList.add('no');
+    return;
+  }
+  const { resolve } = choosing;
+  choosing = null;
+  $('#hand').classList.remove('choose');
+  for (const x of $('#hand').children) x.classList.remove('ok');
+  resolve(c);
+};
+
+async function yourCard() {
   const el = $('#hand'), ok = deal.legal(0);
+  if (pre >= 0) {
+    const c = pre; pre = -1;
+    if (ok & bit(c)) { await sleep(quick ? 120 : 260); markPre(); return c; }
+    markPre(); status(why(c));
+  } else status(deal.n === 0 ? 'Jij komt uit.' : 'Jouw beurt.');
   el.classList.add('choose');
   for (const c of el.children) c.classList.toggle('ok', !!(ok & bit(+c.dataset.c)));
-  status(deal.n === 0 ? 'Jij komt uit.' : 'Jouw beurt.');
-  return new Promise(resolve => {
-    el.onclick = e => {
-      const b = e.target.closest('.card');
-      if (!b) return;
-      const c = +b.dataset.c;
-      if (!(ok & bit(c))) {
-        status(why(c)); b.classList.remove('no'); void b.offsetWidth; b.classList.add('no');
-        return;
-      }
-      el.onclick = null; el.classList.remove('choose');
-      for (const x of el.children) x.classList.remove('ok');
-      resolve(c);
-    };
-  });
+  return new Promise(resolve => { choosing = { ok, resolve }; });
 }
 
 // ---- one deal ----------------------------------------------------------------------------------
@@ -192,16 +206,16 @@ const events = {
     box.dataset.to = t.winner; box.classList.add('gone');
     await sleep(quick ? 150 : 380);
     box.replaceChildren(); box.classList.remove('best', 'gone');
-    drawTaken(); drawSeats();
+    drawSeats();
     $('#lastBtn').hidden = false;
   },
 };
 
 async function oneDeal() {
   deal = Deal.random(rng((Math.random() * 2 ** 32) >>> 0), game.dealer);
-  mult = game.carry; trumpKnown = false;
+  mult = game.carry; trumpKnown = false; pre = -1;
   $('#trick').replaceChildren(); $('#lastBtn').hidden = true;
-  drawScore(); drawContract(); drawHand(); drawBacks(); drawSeats(); drawTaken();
+  drawScore(); drawContract(); drawHand(); drawBacks(); drawSeats();
   const r = await playDeal(deal, ask, { carry: game.carry, on: (what, data) => events[what](data) });
   game.deals.push({ dealer: r.dealer, trump: r.trump, mult: r.mult, points: r.points, team: r.team, score: r.score });
   if (r.team >= 0) game.score[r.team] += r.score;
@@ -222,7 +236,10 @@ async function afterDeal(r) {
   await askDialog(`${end}<div class="big"><span><small>wij</small> ${r.points[0]}</span><span><small>zij</small> ${r.points[1]}</span></div>${line}
     <p class="dim">Stand: wij ${game.score[0]}, zij ${game.score[1]}.</p>
     <div class="row"><button class="btn main" data-v="1">${over ? 'Nieuwe boom' : 'Volgend spel'}</button></div>`);
-  if (over) { game = { score: [0, 0], deals: [], dealer: game.dealer, carry: 1 }; save(); }
+  if (over) {
+    game.games.push({ day: new Date().toISOString().slice(0, 10), score: game.score });
+    game = { score: [0, 0], deals: [], dealer: game.dealer, carry: 1, games: game.games }; save();
+  }
 }
 
 // ---- the sheets --------------------------------------------------------------------------------
@@ -244,8 +261,13 @@ $('#score').onclick = () => {
     <table><thead><tr><th>deler, troef</th><th>punten</th><th>wij</th><th>zij</th></tr></thead>
     <tbody>${rows || '<tr><td colspan="4" class="dim">Nog geen spel gespeeld.</td></tr>'}</tbody>
     <tfoot><tr><td></td><td></td><td>${a}</td><td>${b}</td></tr></tfoot></table>
-    <div class="row"><button class="btn" id="fresh">Opnieuw beginnen</button></div>`);
-  $('#fresh').onclick = () => { localStorage.removeItem(KEY); location.reload(); };
+    ${game.games.length ? `<h3>Gespeelde bomen</h3>
+    <p>${game.games.filter(g => g.score[0] > g.score[1]).length} gewonnen, ${game.games.filter(g => g.score[0] < g.score[1]).length} verloren</p>
+    <table class="past"><tbody>${game.games.slice(-8).reverse().map(g => `<tr><td class="dim">${g.day.split('-').reverse().join('/')}</td><td>${g.score[0]}</td><td>${g.score[1]}</td></tr>`).join('')}</tbody></table>` : ''}
+    <div class="row"><button class="btn" id="fresh">Deze boom opnieuw beginnen</button></div>`);
+  $('#fresh').onclick = () => {
+    game = { score: [0, 0], deals: [], dealer: game.dealer, carry: 1, games: game.games }; save(); location.reload();
+  };
 };
 
 $('#lastBtn').onclick = () => {
@@ -265,14 +287,15 @@ $('#rulesBtn').onclick = () => {
     <p>Vier spelers, twee tegen twee, 32 kaarten. Je speelt met de speler tegenover je. Wie deelt kiest troef, of speelt zonder troef (dan telt het spel dubbel). De speler links van de deler komt uit.</p>
     <h3>De kaarten</h3>
     <div class="mini"></div>
-    <p>Van sterk naar zwak. De 10 (de manille) is 5 punten waard, de aas 4, de heer 3, de dame 2, de boer 1. Samen 60 per spel.</p>
+    <p>Van sterk naar zwak. De 10 (de manille) is 5 punten waard, de aas 4, de heer (R) 3, de dame (D) 2, de boer (V) 1. Samen 60 per spel.</p>
     <h3>Wat je moet spelen</h3>
     <p>Je moet volgen. Ligt de slag bij de tegenpartij, dan moet je erboven als je kan.</p>
     <p>Kan je niet volgen en ligt de slag bij de tegenpartij, dan moet je troeven, en boven een troef die er al ligt. Lager troeven mag niet, tenzij je niets anders hebt.</p>
     <p>Ligt de slag bij je maat, dan ben je vrij (maar je volgt altijd).</p>
     <h3>Tellen</h3>
     <p>De ploeg met meer dan 30 krijgt wat ze boven 30 heeft. Alle slagen halen is 60. Bij 30 tegen 30 scoort niemand en telt het volgende spel dubbel. Wie eerst ${TARGET} heeft wint de boom.</p>
-    <p>De tegenpartij van de deler mag meegaan (het spel telt dubbel), de ploeg van de deler mag dan tegengaan (nog eens dubbel).</p>
+    <p>De tegenpartij van de deler mag meegaan (het spel telt dubbel), de ploeg van de deler mag dan tegengaan (nog eens dubbel). De knop daarvoor staat enkele seconden boven je kaarten.</p>
+    <p>Je mag een kaart al klaarleggen voor je aan de beurt bent: tik erop, en ze wordt gespeeld zodra het mag.</p>
     <h3>De computer</h3>
     <p>De drie anderen zien alleen hun eigen kaarten en wat er gevallen is. Ze leiden daaruit af wat de anderen niet kunnen hebben, delen de overige kaarten op alle manieren die dan nog kunnen, en spelen de kaart die gemiddeld het meeste opbrengt.</p>
   </div>`);

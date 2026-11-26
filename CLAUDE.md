@@ -7,8 +7,8 @@ after. Server side: `~/docker/notes/manillen.md`. The map of `~/research`: `../C
 
 ## Where things are
 
-- `site/` is **the live docroot of manillen.daems.me** (nginx, read-only mount): a save there
-  is live at once. Test first: `npm test`, then the browser rig `~/.cache/manillen-shots/play.py`
+- `site/` is **the live docroot of manillen.daems.me**, which is public (nginx, read-only
+  mount): a save there is on the internet at once. Test first: `npm test`, then the browser rig `~/.cache/manillen-shots/play.py`
   (it plays whole deals on the live site, which has no state but the visitor's localStorage).
 - `site/js/` is one JavaScript engine for the browser and for node: there is no second
   implementation of the rules, on purpose.
@@ -38,8 +38,14 @@ more than a few dozen deals go to hippo: it has no node of its own, so one lives
 
 ## Rules
 
-- Commit after a change. The remote is `rdaems/manille-net` on GitHub, **public**: pushing
-  publishes the work, so push only when Rembert says so.
-- The site is on the LAN and tailscale only. Putting it on the tunnel is his call.
+- Commit after a change and push: the remote is `rdaems/manille-net` on GitHub, public.
+  Rembert said yes to pushing on 2026-11-26. Nothing private goes in the repo (no addresses,
+  no keys; `outputs/`, `runs/` and `.cache/` are ignored).
+- The site is public on the tunnel since 2026-11-26 (his yes), ungated, noindex.
+- What he asked for on the page, so it is not undone: the doubling question is a small
+  button above the hand that runs out after five seconds (no popup, and never the word
+  "pass"); cards carry the French letters V D R; a neat typeface (he called the handwriting
+  font sloppy); a game goes to 121 and finished games are kept; cards can be set ready before
+  your turn (pre-moves); no running "this deal: us 7, them 8" line.
 - Next steps and what was measured: this project's Claude memory,
   `~/.claude/projects/-home-rembert-research-manille-net/memory/`.

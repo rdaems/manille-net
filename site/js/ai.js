@@ -101,12 +101,15 @@ export function searchTrump(view, opts, rand) {
 }
 
 // Meegaan (an opponent of the dealer doubles) or tegengaan (the dealer's side doubles back).
-// Doubling pays when the deal is worth more than nothing; the margins are there because open
-// cards flatter the estimate and the other side knows something we do not.
+// The estimate is too rosy for the dealer's opponents: over 600 deals between search players
+// (experiments/doubling.js, 2026-11-26) the dealer's side ended 6 card points above 30 on
+// average, and an opponent who believed in +4 to +12 ended around -1. From +12 on it paid
+// (right 3 times in 4). After such a meegaan the dealer's side lost 4 deals in 5, whatever
+// its own estimate said, so going against asks for the same high bar.
 export function searchDouble(view, opts, rand) {
   const [c] = contracts(view, [view.trump], opts, rand);
   const back = teamOf(view.seat) === teamOf(view.dealer);
-  return { go: back ? c.mean >= 6 && c.win >= 0.7 : c.mean >= 4 && c.win >= 0.65, ...c };
+  return { go: c.mean >= 12 && c.win >= (back ? 0.9 : 0.85), ...c };
 }
 
 // ---- baselines -------------------------------------------------------------------------

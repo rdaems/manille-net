@@ -38,10 +38,12 @@ function position(view) {
 // ---- search ----------------------------------------------------------------------------
 
 // opts: worlds (deals to draw), ms (stop drawing after this long, 0 = never), min (draw at
-// least this many whatever the clock says).
+// least this many whatever the clock says), blind (see below).
 export function searchCard(view, opts, rand) {
   const { k, pts, moves } = position(view);
   if (moves.length === 1) return { card: moves[0], worlds: 0, values: [] };
+  // blind: forget what the forced plays revealed, keep only which cards fell (for comparison)
+  if (opts.blind) k.cant = k.cant.map(() => k.played);
   const draw = sampler(view.seat, view.hand, k);
   const sum = new Float64Array(moves.length);
   const left = 32 - view.plays.length;
@@ -115,6 +117,8 @@ export const players = {
     trump: (view, rand) => searchTrump(view, { worlds: 12, ...opts }, rand).trump,
     double: (view, rand) => searchDouble(view, { worlds: 24, ...opts }, rand).go,
   }),
+  // search that ignores what the forced plays reveal
+  blind: (opts = { worlds: 30 }) => players.search({ ...opts, blind: true }),
   // a legal card at random, a suit at random, never doubles
   random: () => ({
     card: (view, rand) => { const m = position(view).moves; return m[Math.floor(rand() * m.length)]; },

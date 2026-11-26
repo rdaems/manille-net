@@ -1,0 +1,20 @@
+[package]
+name = "manille"
+version = "0.1.0"
+edition = "2021"
+description = "Manillen: rules, what a player can know, open-card solver, search players"
+license = "MIT"
+
+[lib]
+name = "manille_engine"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "manille"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

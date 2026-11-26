@@ -2,3 +2,5 @@ outputs/
 runs/
 .cache/
 node_modules/
+engine/target/
+bin/

@@ -109,16 +109,19 @@ async function yourTrump() {
   return +v;
 }
 
-// Meegaan or tegengaan: a button that is there for a few seconds. Not pressing it is the answer no.
+// Meegaan or tegengaan: a button that is there for a few seconds. Not pressing it is the answer
+// no; the cross (or Escape) says no at once.
 function yourDouble(view) {
   const el = $('#offer'), back = teamOf(view.dealer) === 0;
-  el.firstElementChild.textContent = back ? 'Ga tegen (dubbel)' : 'Ga mee (dubbel)';
+  el.querySelector('.go').textContent = back ? 'Ga tegen (dubbel)' : 'Ga mee (dubbel)';
   el.style.setProperty('--ms', OFFER_MS + 'ms');
   status(''); el.hidden = false;
   return new Promise(resolve => {
-    const done = v => { clearTimeout(timer); el.hidden = true; el.onclick = null; resolve(v); };
+    const done = v => { clearTimeout(timer); el.hidden = true; el.onclick = null; removeEventListener('keydown', key); resolve(v); };
+    const key = e => { if (e.key === 'Escape') done(false); };
     const timer = setTimeout(() => done(false), OFFER_MS);
-    el.onclick = () => done(true);
+    el.onclick = e => { if (e.target.closest('button')) done(!!e.target.closest('.go')); };
+    addEventListener('keydown', key);
   });
 }
 

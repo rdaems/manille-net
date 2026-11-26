@@ -125,10 +125,12 @@ header { grid-area: head; }
 #status { margin: 0; text-align: center; font-size: 17px; }
 /* meegaan / tegengaan: there for a few seconds, the line under it runs out */
 #offer {
-  position: relative; overflow: hidden; padding: 7px 16px 10px; border-radius: 8px;
+  position: relative; overflow: hidden; display: flex; border-radius: 8px;
   border: 1.5px solid var(--chalk-yellow); color: var(--chalk-yellow); font-size: 16px; font-weight: 600;
   animation: offer .2s ease-out;
 }
+#offer .go { padding: 7px 12px 10px 16px; }
+#offer .x { padding: 5px 14px 10px 12px; font-size: 22px; line-height: 1; font-weight: 400; border-left: 1.5px solid rgba(242,214,117,.4); }
 #offer[hidden] { display: none; }
 #offer:not([hidden]) + *, #line:has(#offer:not([hidden])) #status { display: none; }
 #offer i { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--chalk-yellow); transform-origin: left; animation: runout var(--ms, 5s) linear forwards; }

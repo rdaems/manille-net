@@ -21,13 +21,14 @@ function threeNames() {
   while (out.length < 3) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   return out;
 }
-const WHO = ['Jij', '', '', ''];                         // left, partner, right: filled from the game
+const WHO = ['Jij', '', '', ''];                         // you, left, partner, right: filled from the settings and the game
 const SUIT = ['schoppen', 'harten', 'klaveren', 'ruiten'];
 const TARGET = 121;
 const OFFER_MS = 5000;                                   // how long the doubling button stays
 const THINK_MS = 320;                                    // an opponent never answers faster than this
 const SHADOW = '0 1px 0 rgba(0,0,0,.25), 0 2px 5px rgba(0,0,0,.4)';
 
+const esc = t => String(t).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
 const isRed = s => s === 1 || s === 3;
 const suitSvg = s => `<svg viewBox="0 0 32 32" aria-hidden="true"${isRed(s) ? ' class="red"' : ''}><use href="#s${s}"/></svg>`;
 function cardEl(c, tag = 'div') {
@@ -50,14 +51,34 @@ const think = (what, view) => new Promise(resolve => {
 });
 
 // ---- what is kept between visits -----------------------------------------------------------
+// The settings: your own name, fixed names for the other three (null: new ones every boom),
+// and the back of the cards.
+const BACKS = [['blauw', 'Blauw'], ['rood', 'Rood'], ['rozet', 'Rozet'], ['sterren', 'Sterren'], ['schots', 'Schots'], ['goud', 'Goud']];
+const SETTINGS = 'manillen-settings';
+let settings = { me: '', names: null, back: 'blauw' };
+try { settings = { ...settings, ...JSON.parse(localStorage.getItem(SETTINGS)) }; } catch {}
+if (!BACKS.some(([id]) => id === settings.back)) settings.back = 'blauw';
+if (!(Array.isArray(settings.names) && settings.names.length === 3)) settings.names = null;
+const keep = () => { try { localStorage.setItem(SETTINGS, JSON.stringify(settings)); } catch {} };
+document.documentElement.dataset.back = settings.back;
+
 const KEY = 'manillen-1';
-const fresh = games => ({ score: [0, 0], deals: [], dealer: Math.floor(Math.random() * 4), carry: 1, games, names: threeNames() });
+const fresh = games => ({ score: [0, 0], deals: [], dealer: Math.floor(Math.random() * 4), carry: 1, games,
+  names: settings.names ? settings.names.slice() : threeNames() });
 let game = fresh([]);
 try { const g = JSON.parse(localStorage.getItem(KEY)); if (g && g.score) game = { games: [], ...g }; } catch {}
 function seatNames() {                                   // the names on the plates, in the texts, on the start screen
+  if (settings.names) game.names = settings.names.slice();
   if (!Array.isArray(game.names) || game.names.length !== 3) game.names = threeNames();
+  WHO[0] = settings.me || 'Jij';
   game.names.forEach((n, i) => { WHO[i + 1] = n; });
-  document.querySelectorAll('.seat').forEach(el => { el.querySelector('.who').textContent = WHO[+el.dataset.seat]; });
+  // The name twice on top of each other, the hidden one in bold: the plate is as wide as the
+  // bold name it shows on its turn, so it does not change size when the turn comes or goes.
+  document.querySelectorAll('.seat').forEach(el => {
+    const name = WHO[+el.dataset.seat];
+    el.querySelector('.who').replaceChildren(Object.assign(document.createElement('span'), { textContent: name }),
+      Object.assign(document.createElement('span'), { textContent: name, className: 'w', ariaHidden: 'true' }));
+  });
   $('#home .sub').textContent = `Jij en ${WHO[2]} tegen ${WHO[1]} en ${WHO[3]}.`;
 }
 seatNames();
@@ -339,7 +360,7 @@ function showScore() {
   let a = 0, b = 0;
   const rows = game.deals.map(d => {
     if (d.team === 0) a += d.score; else if (d.team === 1) b += d.score;
-    return `<tr><td>${WHO[d.dealer]} ${d.trump === NOTRUMP ? 'zonder' : suitSvg(d.trump)}${d.mult > 1 ? ` ×${d.mult}` : ''}</td>
+    return `<tr><td>${esc(WHO[d.dealer])} ${d.trump === NOTRUMP ? 'zonder' : suitSvg(d.trump)}${d.mult > 1 ? ` ×${d.mult}` : ''}</td>
       <td class="dim">${d.points[0]}–${d.points[1]}</td><td>${d.team === 0 ? d.score : ''}</td><td>${d.team === 1 ? d.score : ''}</td></tr>`;
   }).join('');
   sheet(`<h2>Boom tot ${TARGET}</h2>
@@ -362,7 +383,7 @@ function showLast() {
 
 function showRules() {
   const dlg = sheet(`<h2>Regels</h2><div class="rules">
-    <p>Vier spelers, twee tegen twee, 32 kaarten. Jij speelt met ${WHO[2]}, tegenover je, tegen ${WHO[1]} en ${WHO[3]}. Wie deelt kiest troef, of speelt zonder troef (dan telt het spel dubbel). De speler links van de deler komt uit.</p>
+    <p>Vier spelers, twee tegen twee, 32 kaarten. Jij speelt met ${esc(WHO[2])}, tegenover je, tegen ${esc(WHO[1])} en ${esc(WHO[3])}. Wie deelt kiest troef, of speelt zonder troef (dan telt het spel dubbel). De speler links van de deler komt uit.</p>
     <h3>De kaarten</h3>
     <div class="mini"></div>
     <p>Van sterk naar zwak, met de punten eronder. De 10 (de manille) is de hoogste kaart. Samen 60 punten per spel.</p>
@@ -375,7 +396,7 @@ function showRules() {
     <p>De tegenpartij van de deler mag meegaan (het spel telt dubbel), de ploeg van de deler mag dan tegengaan (nog eens dubbel). De knop daarvoor staat enkele seconden boven je kaarten.</p>
     <p>Je mag een kaart al klaarleggen voor je aan de beurt bent: tik erop, en ze wordt gespeeld zodra het mag.</p>
     <h3>De computer</h3>
-    <p>${WHO[1]}, ${WHO[2]} en ${WHO[3]} zien alleen hun eigen kaarten en wat er gevallen is. Ze leiden daaruit af wat de anderen kunnen hebben, wegen de mogelijke verdelingen met wat ze van duizenden eerdere spellen geleerd hebben, en spelen de kaart die gemiddeld het meeste opbrengt.</p>
+    <p>${esc(WHO[1])}, ${esc(WHO[2])} en ${esc(WHO[3])} zien alleen hun eigen kaarten en wat er gevallen is. Ze leiden daaruit af wat de anderen kunnen hebben, wegen de mogelijke verdelingen met wat ze van duizenden eerdere spellen geleerd hebben, en spelen de kaart die gemiddeld het meeste opbrengt.</p>
   </div>`);
   dlg.querySelector('.mini').append(...[7, 6, 5, 4, 3, 2, 1, 0].map(r => {
     const f = document.createElement('figure');
@@ -384,18 +405,66 @@ function showRules() {
   }));
 }
 
+// Names and the back of the cards. Everything takes effect at once and is kept in this browser.
+function showSettings() {
+  const dlg = sheet(`<h2>Instellingen</h2>
+    <h3>Namen</h3>
+    <div class="names">
+      <label><span>Jij</span><input id="nMe" maxlength="14" autocomplete="off" enterkeyhint="done"></label>
+      <label><span>Je maat, tegenover</span><input data-i="1" maxlength="14" autocomplete="off" enterkeyhint="done"></label>
+      <label><span>Links van je</span><input data-i="0" maxlength="14" autocomplete="off" enterkeyhint="done"></label>
+      <label><span>Rechts van je</span><input data-i="2" maxlength="14" autocomplete="off" enterkeyhint="done"></label>
+    </div>
+    <p class="dim mode"></p>
+    <h3>Achterkant van de kaarten</h3>
+    <div class="backpick">${BACKS.map(([id, label]) => `<button data-back="${id}"><div class="back"></div><span>${label}</span></button>`).join('')}</div>`);
+  if (document.activeElement && document.activeElement.matches('input')) document.activeElement.blur();   // no keyboard popping up on a phone
+  const me = dlg.querySelector('#nMe'), others = [...dlg.querySelectorAll('[data-i]')];
+  const mode = () => {
+    dlg.querySelector('.mode').innerHTML = settings.names
+      ? 'Deze namen blijven. <button class="link" id="nRandom">Elke boom nieuwe namen</button>'
+      : 'Bij elke nieuwe boom komen er nieuwe namen. Pas er een aan en ze blijven.';
+    const random = dlg.querySelector('#nRandom');
+    if (random) random.onclick = () => { settings.names = null; game.names = threeNames(); keep(); save(); seatNames(); fill(); };
+  };
+  const fill = () => {
+    me.value = settings.me; me.placeholder = 'Jij';
+    for (const el of others) el.value = el.placeholder = game.names[+el.dataset.i];
+    mode();
+  };
+  fill();
+  me.oninput = () => { settings.me = me.value.trim(); keep(); seatNames(); };
+  // An empty field keeps the name it had (its placeholder).
+  const named = i => { const el = others.find(o => +o.dataset.i === i); return el.value.trim() || el.placeholder; };
+  for (const el of others) el.oninput = () => {
+    const was = settings.names;
+    settings.names = [0, 1, 2].map(named);
+    keep(); save(); seatNames();
+    if (!was) mode();
+  };
+  for (const el of [me, ...others]) el.onkeydown = e => { if (e.key === 'Enter') el.blur(); };
+  const mark = () => dlg.querySelectorAll('[data-back]').forEach(b => b.setAttribute('aria-pressed', b.dataset.back === settings.back));
+  mark();
+  dlg.querySelector('.backpick').onclick = e => {
+    const b = e.target.closest('[data-back]'); if (!b) return;
+    settings.back = b.dataset.back; document.documentElement.dataset.back = settings.back; keep(); mark(); sound.play('card');
+  };
+}
+
 $('#score').onclick = showScore;
 $('#lastBtn').onclick = showLast;
 $('#menuBtn').onclick = () => {
   const dlg = sheet(`<h2>Menu</h2><div class="menu">
     <button class="btn" id="mScore">Scorebord</button>
     <button class="btn" id="mRules">Regels</button>
+    <button class="btn" id="mSettings">Instellingen</button>
     <button class="btn" id="mSound"></button>
     <button class="btn" id="mStop">Stoppen <small>de stand blijft bewaard</small></button></div>`);
   const label = () => { dlg.querySelector('#mSound').textContent = sound.isMuted() ? 'Geluid aanzetten' : 'Geluid uitzetten'; };
   label();
   dlg.querySelector('#mScore').onclick = showScore;
   dlg.querySelector('#mRules').onclick = showRules;
+  dlg.querySelector('#mSettings').onclick = showSettings;
   dlg.querySelector('#mSound').onclick = () => { sound.setMuted(!sound.isMuted()); sound.wake(); sound.play('card'); label(); };
   dlg.querySelector('#mStop').onclick = () => location.reload();     // a deal in progress is dealt again
 };
@@ -424,6 +493,7 @@ async function start(anew) {
 $('#continue').onclick = () => start(false);
 $('#new').onclick = () => start(true);
 $('#homeRules').onclick = showRules;
+$('#homeSettings').onclick = showSettings;
 
 // Installing: Chrome and Android offer it through this event; on an iPhone it is a menu in Safari.
 let installer = null;

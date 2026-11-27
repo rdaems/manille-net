@@ -91,6 +91,19 @@ dialog[open] { animation: rise .16s ease-out; }
 .panel .lasttrick figure { margin: 0; text-align: center; font-size: 14px; color: var(--ink-soft); }
 .panel .lasttrick .win { color: var(--felt-deep); font-weight: 700; }
 .panel .menu { display: grid; gap: 10px; }
+.panel .names { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; margin-top: 6px; font-size: 15px; }
+.panel .names label { display: contents; }
+.panel input {
+  font: inherit; font-size: 16px; min-width: 0; padding: 8px 10px; border-radius: 8px; color: var(--ink); background: #fff;
+  border: 1.5px solid rgba(27,42,33,.3); user-select: text; -webkit-user-select: text;
+}
+.panel input:focus { outline: 2px solid var(--felt); outline-offset: 0; border-color: var(--felt); }
+.panel .mode { font-size: 14px; }
+.panel .link { color: var(--felt-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.panel .backpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 8px; margin-top: 8px; }
+.panel .backpick button { display: grid; justify-items: center; gap: 5px; padding: 8px 4px 6px; border-radius: 10px; font-size: 14px; }
+.panel .backpick button[aria-pressed="true"] { background: rgba(28,122,69,.14); box-shadow: inset 0 0 0 2px var(--felt); font-weight: 700; }
+.panel .backpick .back { width: 44px; height: 64px; }
 
 /* ---- cards ------------------------------------------------------------------------------ */
 .card {
@@ -101,14 +114,33 @@ dialog[open] { animation: rise .16s ease-out; }
   box-shadow: 0 1px 0 rgba(0,0,0,.25), 0 2px 5px rgba(0,0,0,.4);
 }
 .card img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; -webkit-user-drag: none; }
+/* the backs: a white edge, a thin line inside it, and the pattern chosen in the settings
+   (`data-back` on <html>, or on a button in the settings to show one) */
 .back {
-  flex: none; border-radius: 4px; border: 2.5px solid #fff;
-  background:
-    repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.28) 3px 4px),
-    repeating-linear-gradient(-45deg, transparent 0 3px, rgba(255,255,255,.28) 3px 4px),
-    #1f4f9e;
-  box-shadow: 0 1px 3px rgba(0,0,0,.45);
+  flex: none; border-radius: 5px; border: 2.5px solid #fff;
+  background: var(--back);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.4), 0 1px 3px rgba(0,0,0,.45);
 }
+[data-back="blauw"] { --back:
+  repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.28) 3px 4px),
+  repeating-linear-gradient(-45deg, transparent 0 3px, rgba(255,255,255,.28) 3px 4px), #1f4f9e; }
+[data-back="rood"] { --back:
+  repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.24) 3px 4px),
+  repeating-linear-gradient(-45deg, transparent 0 3px, rgba(255,255,255,.24) 3px 4px), #a8232b; }
+[data-back="rozet"] { --back:
+  radial-gradient(circle, #f0d38a 0 6%, #7b1830 6.5% 11%, #f0d38a 11.5% 13%, transparent 13.5%),
+  repeating-conic-gradient(#7b1830 0 7.5deg, #9d2843 7.5deg 15deg); }
+[data-back="sterren"] { --back:
+  radial-gradient(circle, #e8c35a 0 1.1px, transparent 1.7px) 0 0 / 9px 9px,
+  radial-gradient(circle, rgba(232,195,90,.5) 0 .8px, transparent 1.3px) 4.5px 4.5px / 9px 9px, #172650; }
+[data-back="schots"] { --back:
+  repeating-linear-gradient(90deg, transparent 0 9px, rgba(230,60,50,.7) 9px 11px, transparent 11px 18px),
+  repeating-linear-gradient(0deg, transparent 0 9px, rgba(230,60,50,.7) 9px 11px, transparent 11px 18px),
+  repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 4px, transparent 4px 9px),
+  repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 4px, transparent 4px 9px), #1d3f5e; }
+[data-back="goud"] { --back:
+  repeating-linear-gradient(60deg, transparent 0 6px, rgba(214,178,90,.75) 6px 7px),
+  repeating-linear-gradient(-60deg, transparent 0 6px, rgba(214,178,90,.75) 6px 7px), #18181a; }
 
 /* ---- the start screen ------------------------------------------------------------------- */
 #home {
@@ -143,7 +175,13 @@ header { grid-area: head; display: flex; justify-content: space-between; align-i
 
 .seat { position: relative; display: flex; align-items: center; gap: 6px; }
 .plate { display: flex; align-items: center; gap: 8px; font-size: 15px; white-space: nowrap; }
-.who { padding: 2px 10px; border-radius: 99px; background: rgba(0,0,0,.22); transition: background .15s, color .15s; }
+/* above and below: the name in the middle, the dealer's badge beside it, so the name stays put when the badge changes */
+#north .plate, #south .plate { display: grid; grid-template-columns: 1fr auto 1fr; }
+#north .who, #south .who { grid-column: 2; }
+#north .badge, #south .badge { grid-column: 3; justify-self: start; }
+.who { display: inline-grid; padding: 2px 10px; border-radius: 99px; background: rgba(0,0,0,.22); transition: background .15s, color .15s; }
+.who > span { grid-area: 1 / 1; text-align: center; }
+.who > .w { font-weight: 700; visibility: hidden; }      /* the bold name holds the place: no jump on the turn */
 .seat.turn .who { background: var(--gold); color: var(--ink); font-weight: 700; }
 /* the dealer's plate carries the trump: it was the dealer who named it */
 .badge { display: none; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border-radius: 99px; background: var(--paper); color: var(--ink); font-weight: 700; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
@@ -164,15 +202,17 @@ header { grid-area: head; display: flex; justify-content: space-between; align-i
 #west .who, #east .who { writing-mode: vertical-rl; padding: 10px 3px; }
 #west .who { transform: rotate(180deg); }
 #east .who { order: 2; }
-#west .badge, #east .badge { position: absolute; bottom: calc(50% + var(--cw) * .9 + 8px); }
+#west .badge, #east .badge { position: absolute; bottom: calc(50% + var(--cw) * .95 + 8px); }
 #west .badge { left: 8px; } #east .badge { right: 8px; }
-#west .backs, #east .backs { height: calc(var(--cw) * 1.8); justify-content: center; }
-.backs { display: flex; }
-#north .back { width: calc(var(--cw) * .4); height: calc(var(--cw) * .6); }
-#north .back + .back { margin-left: calc(var(--cw) * -.2); }
-#west .backs, #east .backs { flex-direction: column; }
-#west .back, #east .back { width: calc(var(--cw) * .6); height: calc(var(--cw) * .4); }
-#west .back + .back, #east .back + .back { margin-top: calc(var(--cw) * -.2); }
+/* a back is half a card wide, in the card's proportions; every box of backs is as large as a
+   full hand, empty or not, so no name moves when cards leave (also not with the last card) */
+.backs { display: flex; --bw: calc(var(--cw) * .5); --bh: calc(var(--bw) * var(--ratio)); }
+#north .backs { width: calc(var(--bw) + var(--cw) * .25 * 7); height: var(--bh); justify-content: center; }
+#north .back { width: var(--bw); height: var(--bh); }
+#north .back + .back { margin-left: calc(var(--cw) * .25 - var(--bw)); }
+#west .backs, #east .backs { flex-direction: column; width: var(--bh); height: calc(var(--bw) + var(--cw) * .2 * 7); justify-content: center; }
+#west .back, #east .back { width: var(--bh); height: var(--bw); }
+#west .back + .back, #east .back + .back { margin-top: calc(var(--cw) * .2 - var(--bw)); }
 
 .say {
   position: absolute; z-index: 5; white-space: nowrap; pointer-events: none;
@@ -185,8 +225,8 @@ header { grid-area: head; display: flex; justify-content: space-between; align-i
 .say svg.red { fill: var(--red); }
 .say.on { opacity: 1; transform: none; }
 #north .say { top: 100%; margin-top: 6px; }
-#west .say { left: 12px; top: calc(50% + var(--cw) * 1.1 + 26px); }
-#east .say { right: 12px; top: calc(50% + var(--cw) * 1.1 + 26px); }
+#west .say { left: 12px; top: calc(50% + var(--cw) * 1.15 + 26px); }
+#east .say { right: 12px; top: calc(50% + var(--cw) * 1.15 + 26px); }
 #south .say { bottom: 100%; left: 50%; translate: -50% 0; margin-bottom: 6px; }
 
 #middle { grid-area: middle; position: relative; display: grid; place-items: center; min-height: calc(calc(var(--cw) * var(--ratio)) * 1.75); min-width: 0; }
@@ -194,11 +234,12 @@ header { grid-area: head; display: flex; justify-content: space-between; align-i
 #trick .card { position: absolute; left: calc(var(--cw) / -2); top: calc(calc(var(--cw) * var(--ratio)) / -2); will-change: transform; }
 #trick .card.winning { box-shadow: 0 0 0 3px var(--gold), 0 3px 8px rgba(0,0,0,.5); z-index: 6; }
 
-#line { grid-area: line; min-height: 40px; display: grid; place-items: center; padding: 0 10px; }
+#line { grid-area: line; min-height: 40px; display: grid; place-items: center; padding: 0 10px; position: relative; }
 #status { margin: 0; text-align: center; font-size: 16px; color: var(--on-felt); text-shadow: 0 1px 2px rgba(0,0,0,.35); }
 /* meegaan / tegengaan: there for a few seconds, the line under it runs out; resting on it stops the clock */
 #offer {
-  position: relative; overflow: hidden; display: flex; border-radius: 10px;
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 5;   /* floats: the table does not move for it */
+  overflow: hidden; display: flex; border-radius: 10px; white-space: nowrap;
   background: var(--gold); color: var(--ink); font-size: 16px; font-weight: 700;
   box-shadow: 0 3px 10px rgba(0,0,0,.35); animation: offer .2s cubic-bezier(.3,1.5,.5,1);
 }
@@ -233,10 +274,11 @@ header { grid-area: head; display: flex; justify-content: space-between; align-i
   header { position: absolute; left: 0; right: 0; top: 0; padding: 4px 10px 0; z-index: 4; }
   #menuBtn { padding: 5px 10px; }
   #north { flex-direction: row; justify-content: center; padding-top: 6px; }
+  #north .plate { display: flex; }
   #middle { min-height: calc(calc(var(--cw) * var(--ratio)) * 1.5); }
   #line { min-height: 28px; }
   #south { padding-bottom: 2px; gap: 0; }
-  #south .plate { position: absolute; left: 10px; bottom: 8px; width: auto; z-index: 3; flex-direction: column; align-items: flex-start; gap: 4px; }
+  #south .plate { position: absolute; left: 10px; bottom: 8px; width: auto; z-index: 3; display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 4px; }
   #lastBtn { position: static; }
   #hand { min-height: calc(calc(var(--cw) * var(--ratio)) + 10px); }
   #ask.clear { margin-bottom: calc(calc(var(--cw) * var(--ratio)) + 26px); max-width: 600px; }

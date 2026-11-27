@@ -84,6 +84,15 @@ replaces deep search, which is the job of the net.
     Flemish names of people of 40 to 90 (`NAMES` in `ui.js`; first he asked for the names of
     Hartenjagen '98, then for these); the names of the left and right players stand on the
     outside of their cards and do not move when the hand shrinks;
+  - a settings screen (menu and start screen, 2026-11-27): your own name, fixed names for the
+    other three (until "Elke boom nieuwe namen"), and the back of the cards, six patterns made
+    in CSS (`[data-back]` in `style.css`); kept in localStorage `manillen-settings`;
+  - backs are half a card wide in the card's proportions (asked bigger, 2026-11-27);
+  - **nothing on the table moves when a card is played** (he saw the names jump on the last
+    card): every box of backs keeps the size of a full hand when empty, a name is as wide as
+    its bold version (`.who .w`), the doubling button floats, the dealer's badge sits beside
+    the name. `~/.cache/manillen-shots/jump.py` plays a deal and prints every move of a name
+    or a box of backs; it must print none;
   - **a card is defined once**: `cardEl()` in `ui.js` and `.card` in `style.css` (width `--cw`,
     height and white margin follow from it); every place that shows a card sets `--cw` and
     nothing else. The faces come without their own outline (`tools/make-cards.py`);

@@ -10,6 +10,9 @@ The card game manillen (West Flemish rules, `RULES.md`) and an AI for it.
   running in the browser.
 - `reference/`: the first version of the AI, in JavaScript. The Rust engine was checked against
   it card for card; it is kept as that yardstick and is not used by the page.
+- `train/`: the trainer (JAX) for the two networks the engine uses to weigh drawn deals: a card
+  policy and a trump policy, fitted to self-play. The ones the page uses are `site/*.bin`.
+- `results/`: what each change was worth, measured in matches.
 - `test/`: `npm test` for the JavaScript side (node 22, no dependencies); `cargo test` in `engine/`.
 - `experiments/`: cross-checks between the two versions, a deal written out card by card.
 

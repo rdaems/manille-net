@@ -30,8 +30,29 @@ after. Server side: `~/docker/notes/manillen.md`. The map of `~/research`: `../C
   Do not develop the JavaScript AI further.
 - `RULES.md`: the rules and their sources. The lines marked **choice** are house rules that
   Rembert decides; do not change one without him.
-- `outputs/` (match results) is not in git.
+- `outputs/` (match results), `data/` (self-play) and `nets/` (training runs) are not in git.
 - The page is in Dutch (players are Flemish). Code, comments and notes in English.
+
+## The networks
+
+- `bin/manille selfplay <deals> <seed> <worlds> <dir>` (on hippo) writes every decision of
+  search players against themselves: `engine/src/selfplay.rs` has the record layouts,
+  `engine/src/features.rs` the network's input. `data/` is not in git.
+- `train/` (JAX; `../bin/hippo setup --python 3.12` once, then
+  `../bin/hippo sh python train/policy.py data/sp1 nets/<name>` and `train/trump.py`) fits
+  P(card | what the player sees) and P(trump | the dealer's cards), suits permuted at random.
+  `nets/` is not in git; `nets/current` is what `cargo test` checks the engine's forward
+  pass against (`*.check.*` files the trainer writes).
+- The player `belief:N[:power[:oversample]]` (`MANILLE_NETS=nets/<name>`) weighs every drawn
+  deal by the likelihood of the trump named and the cards played so far (`History` in
+  `ai.rs`). What it is worth is on the results page; the short version on 2026-11-27:
+  drawing 8 times more deals than are solved is what makes it pay (about +1.3 card points
+  per deal over plain search with the 20,000-deal network).
+- **The site's networks are `site/policy.bin` and `site/trump.bin`, in git and live on
+  save.** Replace them only with networks that won a match of at least 1000 deals against
+  the ones there. The page uses power ½ (`engine/src/wasm.rs` says why).
+- `results/build.py` (after `../bin/hippo pull`) writes `results/data.json` for
+  `results/index.html`, the page on research.daems.me. Add a match to its `MATCHES` list.
 
 ## Compute
 

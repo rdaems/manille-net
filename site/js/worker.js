@@ -1,8 +1,18 @@
 // The AI thinks here, off the page, so the table keeps moving. The engine is the Rust one
 // (../../engine), built as WebAssembly: plain numbers in and out.
-const engine = WebAssembly.instantiate(
-  await (await fetch(new URL('../manille.wasm', import.meta.url))).arrayBuffer(), {},
-).then(w => w.instance.exports);
+const file = async name => new Uint8Array(await (await fetch(new URL('../' + name, import.meta.url))).arrayBuffer());
+const engine = (async () => {
+  const x = (await WebAssembly.instantiate(await file('manille.wasm'), {})).instance.exports;
+  // The two networks (fitted to self-play, see results on the research page): with them the
+  // engine weighs every deal it draws by how likely the play so far is under it. If they do
+  // not arrive the players are plain search, which also works.
+  try {
+    const put = bytes => { const at = x.alloc(bytes.length); new Uint8Array(x.memory.buffer, at, bytes.length).set(bytes); return at; };
+    const [policy, trump] = await Promise.all([file('policy.bin'), file('trump.bin')]);
+    x.load_nets(put(policy), policy.length, put(trump), trump.length);
+  } catch (e) { console.warn('no networks, playing plain search', e); }
+  return x;
+})();
 
 // How many deals the AI draws for a card, for the trump choice (five contracts each) and for
 // meegaan/tegengaan. In the first trick a deal takes long to solve, so fewer are drawn there

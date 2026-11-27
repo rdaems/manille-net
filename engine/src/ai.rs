@@ -25,16 +25,18 @@ pub struct Opts {
     /// With `belief`: draw this many times `worlds` deals and solve only `worlds` of them,
     /// picked by weight.
     pub oversample: u32,
+    /// Which of the engine's sets of networks this player uses (`Ai::nets`).
+    pub nets: usize,
 }
 impl Opts {
     /// As the JavaScript version played: the opening lead and the contracts are not solved
     /// to the end but valued by a playout from 16 cards on.
     pub fn js(worlds: u32) -> Self {
-        Opts { worlds, blind: false, stop: 16, stop_lead: 16, belief: 0.0, oversample: 1 }
+        Opts { worlds, blind: false, stop: 16, stop_lead: 16, belief: 0.0, oversample: 1, nets: 0 }
     }
     /// Everything solved to the last card.
     pub fn exact(worlds: u32) -> Self {
-        Opts { worlds, blind: false, stop: 0, stop_lead: 0, belief: 0.0, oversample: 1 }
+        Opts { worlds, blind: false, stop: 0, stop_lead: 0, belief: 0.0, oversample: 1, nets: 0 }
     }
 }
 
@@ -63,7 +65,8 @@ pub struct Contract {
 
 pub struct Ai {
     pub solver: Solver,
-    pub nets: Option<Nets>,
+    /// The sets of networks the players at the table use (`Opts::nets` picks one).
+    pub nets: Vec<Option<Nets>>,
     /// Over the weighted decisions so far: the sum of the effective numbers of deals, and how many.
     pub ess: (f64, u64),
 }
@@ -135,7 +138,7 @@ impl History {
 
 impl Ai {
     pub fn new() -> Self {
-        Ai { solver: Solver::new(), nets: None, ess: (0.0, 0) }
+        Ai { solver: Solver::new(), nets: vec![None], ess: (0.0, 0) }
     }
 
     /// The card to play, and for every legal card the mean card points team 0 takes after it.
@@ -157,7 +160,7 @@ impl Ai {
         let mut draw = Sampler::new(v.seat, v.hand, &k).expect("the truth fits, so something fits");
         let mut sum = [0f64; 8];
         let stop = if v.plays.is_empty() { o.stop_lead } else { 0 };
-        if o.belief > 0.0 && self.nets.is_some() {
+        if o.belief > 0.0 && self.nets.get(o.nets).is_some_and(|n| n.is_some()) {
             // Draw deals, give each the likelihood of what has been seen, then solve them.
             // With `oversample` > 1 many more are drawn than are solved: `worlds` of them are
             // picked in proportion to their weights (systematic resampling), so the solver's
@@ -167,7 +170,7 @@ impl Ai {
             let mut cand: Vec<([u32; 4], f64)> = Vec::with_capacity(m);
             for _ in 0..m {
                 let h = draw.draw(rng);
-                cand.push((h, o.belief as f64 * seen.log_likelihood(&h, v, self.nets.as_mut().unwrap())));
+                cand.push((h, o.belief as f64 * seen.log_likelihood(&h, v, self.nets[o.nets].as_mut().unwrap())));
             }
             let top = cand.iter().map(|c| c.1).fold(f64::MIN, f64::max);
             let (mut total, mut squares) = (0.0, 0.0);
@@ -316,9 +319,10 @@ pub enum Player {
 impl Player {
     /// "search:30", "exact:30" (no playouts), "blind:30", "belief:30", "belief:30:0.5" (deals
     /// weighed by the networks, to that power) or "belief:30:1:8" (8 x 30 deals drawn, 30
-    /// solved), "thumb", "random".
+    /// solved), "thumb", "random". A belief player may name its networks: "belief:30:1:8@nets/g2"
+    /// (see `nets_dir`).
     pub fn parse(spec: &str) -> Option<Player> {
-        let mut parts = spec.split(':');
+        let mut parts = spec.split('@').next()?.split(':');
         let name = parts.next()?;
         let w: u32 = parts.next().unwrap_or("30").parse().ok()?;
         let power: f32 = parts.next().unwrap_or("1").parse().ok()?;
@@ -331,6 +335,20 @@ impl Player {
             "random" => Player::Random,
             _ => return None,
         })
+    }
+    /// The directory of the networks a spec names after '@' (none: $MANILLE_NETS, or nets/current).
+    pub fn nets_dir(spec: &str) -> String {
+        match spec.split_once('@') {
+            Some((_, dir)) => dir.to_string(),
+            None => std::env::var("MANILLE_NETS").unwrap_or("nets/current".to_string()),
+        }
+    }
+    /// The same player using the engine's set of networks number `i`.
+    pub fn with_nets(self, i: usize) -> Player {
+        match self {
+            Player::Search(o) => Player::Search(Opts { nets: i, ..o }),
+            p => p,
+        }
     }
     pub fn trump(&self, ai: &mut Ai, v: &View, rng: &mut Rng) -> u8 {
         match *self {

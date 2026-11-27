@@ -1,9 +1,9 @@
-//! Search players against themselves, every decision written down for the trainer.
+//! One kind of search player against itself, every decision written down for the trainer.
 //!
 //! Three files of fixed-size little-endian records (layouts below, read by train/data.py):
 //! `cards.bin` (128 bytes, one per card choice with more than one legal card), `trumps.bin`
 //! (32 bytes, one per deal) and `doubles.bin` (24 bytes, one per time a seat was asked).
-use manille_engine::ai::{double_rule, pick_trump, Ai, Opts};
+use manille_engine::ai::{double_rule, pick_trump, Ai, Opts, Player};
 use manille_engine::belief::know;
 use manille_engine::features::features;
 use manille_engine::rules::*;
@@ -110,7 +110,9 @@ fn one_deal(g: usize, seed: u32, o: Opts, ai: &mut Ai, out: &mut Out) {
     }
 }
 
-pub fn run(deals: usize, seed: u32, o: Opts, dir: &str, threads: usize) {
+pub fn run(deals: usize, seed: u32, spec: &str, dir: &str, threads: usize) {
+    let Some(Player::Search(o)) = Player::parse(spec) else { panic!("selfplay needs a search player, not {spec}") };
+    let nets = Player::nets_dir(spec);
     std::fs::create_dir_all(dir).unwrap();
     let file = |name: &str| Mutex::new(std::io::BufWriter::new(std::fs::File::create(format!("{dir}/{name}")).unwrap()));
     let (cards, trumps, doubles) = (file("cards.bin"), file("trumps.bin"), file("doubles.bin"));
@@ -119,6 +121,7 @@ pub fn run(deals: usize, seed: u32, o: Opts, dir: &str, threads: usize) {
         for _ in 0..threads {
             scope.spawn(|| {
                 let (mut ai, mut out) = (Ai::new(), Out::default());
+                ai.nets = vec![manille_engine::net::Nets::load(&nets)];
                 loop {
                     let g = next.fetch_add(1, Ordering::Relaxed);
                     if g >= deals {

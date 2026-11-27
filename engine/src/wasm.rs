@@ -32,7 +32,7 @@ pub unsafe extern "C" fn load_nets(policy: *const u8, policy_len: u32, trump: *c
     let (p, t) = (std::slice::from_raw_parts(policy, policy_len as usize), std::slice::from_raw_parts(trump, trump_len as usize));
     let nets = Nets::parse(p, t);
     let ok = nets.is_some() as u32;
-    AI.with(|ai| ai.borrow_mut().nets = nets);
+    AI.with(|ai| ai.borrow_mut().nets = vec![nets]);
     ok
 }
 

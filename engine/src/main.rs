@@ -2,7 +2,7 @@
 //!                                          sides swapped, all cores; JSON on stdout
 //! manille deal seed worlds                 one deal between search players, as the
 //!                                          JavaScript version plays it (cross-check)
-//! manille selfplay deals seed worlds dir   search players against themselves, every
+//! manille selfplay deals seed player dir  one kind of player against itself, every
 //!                                          decision written to dir/{cards,trumps,doubles}.bin
 //! manille bench                            how fast the solver is
 use manille_engine::ai::{play_deal, Ai, Opts, Player};
@@ -24,11 +24,11 @@ fn main() {
         }
         Some("selfplay") => {
             let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
-            selfplay::run(arg(1, "1000").parse().unwrap(), arg(2, "1").parse().unwrap(), Opts::js(arg(3, "30").parse().unwrap()), &arg(4, "data/run"), arg(5, &threads.to_string()).parse().unwrap());
+            selfplay::run(arg(1, "1000").parse().unwrap(), arg(2, "1").parse().unwrap(), &arg(3, "search:30"), &arg(4, "data/run"), arg(5, &threads.to_string()).parse().unwrap());
         }
         Some("deal") => one_deal(arg(1, "1").parse().unwrap(), arg(2, "30").parse().unwrap()),
         Some("bench") => bench(),
-        _ => eprintln!("manille match A B deals seed [threads] | selfplay deals seed worlds dir [threads] | deal seed worlds | bench"),
+        _ => eprintln!("manille match A B deals seed [threads] | selfplay deals seed player dir [threads] | deal seed worlds | bench"),
     }
 }
 
@@ -40,11 +40,10 @@ struct Half {
 }
 
 fn run_match(spec_a: &str, spec_b: &str, deals: usize, seed: u32, threads: usize) {
-    let a = Player::parse(spec_a).expect("unknown player A");
-    let b = Player::parse(spec_b).expect("unknown player B");
+    let a = Player::parse(spec_a).expect("unknown player A").with_nets(0);
+    let b = Player::parse(spec_b).expect("unknown player B").with_nets(1);
+    let dirs = [Player::nets_dir(spec_a), Player::nets_dir(spec_b)];
     let next = AtomicUsize::new(0);
-    // the networks of the `belief` player: the directory the trainer wrote
-    let nets = std::env::var("MANILLE_NETS").unwrap_or("nets/current".to_string());
     let ess: Mutex<Vec<(f64, u64)>> = Mutex::new(Vec::new());
     let rows: Mutex<Vec<(usize, [u32; 4], [Half; 2])>> = Mutex::new(Vec::new());
     let t0 = Instant::now();
@@ -52,7 +51,7 @@ fn run_match(spec_a: &str, spec_b: &str, deals: usize, seed: u32, threads: usize
         for _ in 0..threads {
             scope.spawn(|| {
                 let mut ai = Ai::new();
-                ai.nets = manille_engine::net::Nets::load(&nets);
+                ai.nets = dirs.iter().map(|d| manille_engine::net::Nets::load(d)).collect();
                 loop {
                     let g = next.fetch_add(1, Ordering::Relaxed);
                     if g >= deals {

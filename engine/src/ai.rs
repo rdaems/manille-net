@@ -22,16 +22,19 @@ pub struct Opts {
     /// Weigh every drawn deal by how likely the trump named and the cards played so far are
     /// under it, according to the networks, to this power (0 = all deals count the same).
     pub belief: f32,
+    /// With `belief`: draw this many times `worlds` deals and solve only `worlds` of them,
+    /// picked by weight.
+    pub oversample: u32,
 }
 impl Opts {
     /// As the JavaScript version played: the opening lead and the contracts are not solved
     /// to the end but valued by a playout from 16 cards on.
     pub fn js(worlds: u32) -> Self {
-        Opts { worlds, blind: false, stop: 16, stop_lead: 16, belief: 0.0 }
+        Opts { worlds, blind: false, stop: 16, stop_lead: 16, belief: 0.0, oversample: 1 }
     }
     /// Everything solved to the last card.
     pub fn exact(worlds: u32) -> Self {
-        Opts { worlds, blind: false, stop: 0, stop_lead: 0, belief: 0.0 }
+        Opts { worlds, blind: false, stop: 0, stop_lead: 0, belief: 0.0, oversample: 1 }
     }
 }
 
@@ -90,9 +93,13 @@ fn position(v: &View) -> Position {
 
 /// The public history as each earlier player saw it, so that a supposed deal can be asked:
 /// would these players, holding those cards, have named this trump and played these cards?
+/// The answer is a sum of one term per seat and step that depends only on the cards that
+/// seat held then, and drawn deals share many such hands, so the terms are remembered.
 struct History {
     /// For every card played by somebody else: who, which card, what was known just before.
     steps: Vec<(u8, u8, Know)>,
+    now: Know,
+    seen: std::collections::HashMap<(u32, u32), f32>,
 }
 
 impl History {
@@ -104,24 +111,23 @@ impl History {
                 steps.push((k.turn, v.plays[t], k));
             }
         }
-        History { steps }
+        History { steps, now: know(v.leader0, v.trump, v.plays), seen: Default::default() }
     }
 
     /// log P(trump named, cards played | the hands `h` as they are now), by the networks.
-    fn log_likelihood(&self, h: &[u32; 4], v: &View, nets: &mut Nets) -> f64 {
-        let now = know(v.leader0, v.trump, v.plays);
+    fn log_likelihood(&mut self, h: &[u32; 4], v: &View, nets: &mut Nets) -> f64 {
         let mut ll = 0.0;
         if v.dealer != v.seat {
-            let dealt = h[v.dealer as usize] | now.by[v.dealer as usize];
-            ll += nets.trump_logp(dealt, v.trump) as f64;
+            let dealt = h[v.dealer as usize] | self.now.by[v.dealer as usize];
+            ll += *self.seen.entry((u32::MAX, dealt)).or_insert_with(|| nets.trump_logp(dealt, v.trump)) as f64;
         }
-        for (seat, card, k) in &self.steps {
+        for (t, (seat, card, k)) in self.steps.iter().enumerate() {
             // the hand that seat held then: what it holds now and what it has played since
-            let hand = h[*seat as usize] | (now.by[*seat as usize] & !k.by[*seat as usize]);
-            let f = features(*seat, hand, v.dealer, v.trump, k);
-            if f.words[11].count_ones() > 1 {
-                ll += nets.card_logp(&f, *card) as f64;
-            }
+            let hand = h[*seat as usize] | (self.now.by[*seat as usize] & !k.by[*seat as usize]);
+            ll += *self.seen.entry((t as u32, hand)).or_insert_with(|| {
+                let f = features(*seat, hand, v.dealer, v.trump, k);
+                if f.words[11].count_ones() > 1 { nets.card_logp(&f, *card) } else { 0.0 }
+            }) as f64;
         }
         ll
     }
@@ -152,34 +158,51 @@ impl Ai {
         let mut sum = [0f64; 8];
         let stop = if v.plays.is_empty() { o.stop_lead } else { 0 };
         if o.belief > 0.0 && self.nets.is_some() {
-            // every deal gets its values and its log-likelihood; the weights follow at the end
-            let seen = History::new(v);
-            let (mut vals, mut logw) = (Vec::with_capacity(o.worlds as usize), Vec::with_capacity(o.worlds as usize));
-            for _ in 0..o.worlds {
+            // Draw deals, give each the likelihood of what has been seen, then solve them.
+            // With `oversample` > 1 many more are drawn than are solved: `worlds` of them are
+            // picked in proportion to their weights (systematic resampling), so the solver's
+            // time goes to deals that are plausible.
+            let mut seen = History::new(v);
+            let m = (o.worlds * o.oversample.max(1)) as usize;
+            let mut cand: Vec<([u32; 4], f64)> = Vec::with_capacity(m);
+            for _ in 0..m {
                 let h = draw.draw(rng);
-                logw.push(o.belief as f64 * seen.log_likelihood(&h, v, self.nets.as_mut().unwrap()));
-                self.solver.reset(&h, v.trump, stop);
-                let mut x = [0f64; 8];
-                for i in 0..n_moves {
-                    x[i] = self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts, table) as f64;
-                }
-                vals.push(x);
+                cand.push((h, o.belief as f64 * seen.log_likelihood(&h, v, self.nets.as_mut().unwrap())));
             }
-            let top = logw.iter().cloned().fold(f64::MIN, f64::max);
+            let top = cand.iter().map(|c| c.1).fold(f64::MIN, f64::max);
             let (mut total, mut squares) = (0.0, 0.0);
-            for (x, lw) in vals.iter().zip(&logw) {
-                let w = (lw - top).exp();
-                total += w;
-                squares += w * w;
-                for i in 0..n_moves {
-                    sum[i] += w * x[i];
+            for c in cand.iter_mut() {
+                c.1 = (c.1 - top).exp();
+                total += c.1;
+                squares += c.1 * c.1;
+            }
+            self.ess.0 += total * total / squares;
+            self.ess.1 += 1;
+            if o.oversample > 1 {
+                let step = total / o.worlds as f64;
+                let (mut at, mut next) = (0.0, rng.next() * step);
+                for c in cand.iter_mut() {
+                    at += c.1;
+                    let mut times = 0.0;
+                    while next < at {
+                        times += 1.0;
+                        next += step;
+                    }
+                    c.1 = times;
+                }
+                total = o.worlds as f64;
+            }
+            for (h, w) in &cand {
+                if *w > 0.0 {
+                    self.solver.reset(h, v.trump, stop);
+                    for i in 0..n_moves {
+                        sum[i] += w * self.solver.after(moves[i], v.seat, k.n, k.led, k.win, k.win_seat, pts, table) as f64;
+                    }
                 }
             }
             for s in sum.iter_mut() {
                 *s *= o.worlds as f64 / total; // on the scale of the unweighted sum
             }
-            self.ess.0 += total * total / squares;
-            self.ess.1 += 1;
         } else {
             for _ in 0..o.worlds {
                 let h = draw.draw(rng);
@@ -291,15 +314,16 @@ pub enum Player {
 }
 
 impl Player {
-    /// "search:30", "exact:30" (no playouts), "blind:30", "belief:30" or "belief:30:0.5" (deals
-    /// weighed by the networks, to that power), "thumb", "random".
+    /// "search:30", "exact:30" (no playouts), "blind:30", "belief:30", "belief:30:0.5" (deals
+    /// weighed by the networks, to that power) or "belief:30:1:8" (8 x 30 deals drawn, 30
+    /// solved), "thumb", "random".
     pub fn parse(spec: &str) -> Option<Player> {
         let mut parts = spec.split(':');
         let name = parts.next()?;
         let w: u32 = parts.next().unwrap_or("30").parse().ok()?;
         let power: f32 = parts.next().unwrap_or("1").parse().ok()?;
         Some(match name {
-            "belief" => Player::Search(Opts { belief: power, ..Opts::js(w) }),
+            "belief" => Player::Search(Opts { belief: power, oversample: parts.next().unwrap_or("1").parse().ok()?, ..Opts::js(w) }),
             "search" => Player::Search(Opts::js(w)),
             "exact" => Player::Search(Opts::exact(w)),
             "blind" => Player::Search(Opts { blind: true, ..Opts::js(w) }),

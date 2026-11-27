@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Manillen: results</title>
+<style>
+  @font-face { font-family: "STIX Two Text"; font-weight: 400; font-display: swap; src: url(/web/fonts/stix-two-text-latin-400-normal.woff2) format("woff2"); }
+  @font-face { font-family: "STIX Two Text"; font-weight: 400; font-style: italic; font-display: swap; src: url(/web/fonts/stix-two-text-latin-400-italic.woff2) format("woff2"); }
+  @font-face { font-family: "STIX Two Text"; font-weight: 600; font-display: swap; src: url(/web/fonts/stix-two-text-latin-600-normal.woff2) format("woff2"); }
+  :root {
+    --paper: #ffffff; --ink: #16181d; --graphite: #5f646e; --hairline: #e2e3e8;
+    --s1: #2a78d6; --s2: #eb6834; --seq1: #86b6ef; --seq2: #2a78d6; --seq3: #104281; --seq4: #0d366b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #121317; --ink: #e9e7e2; --graphite: #9da1aa; --hairline: #2b2e36;
+      --s1: #3987e5; --s2: #d95926; --seq1: #256abf; --seq2: #5598e7; --seq3: #9ec5f4; --seq4: #cde2fb; }
+  }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.5 "STIX Two Text", Georgia, serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
+  h1 { font-size: 28px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 20px; font-weight: 600; margin: 44px 0 6px; }
+  p { margin: 6px 0; max-width: 66ch; }
+  .quiet { color: var(--graphite); }
+  a { color: inherit; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { font: 13px "STIX Two Text", Georgia, serif; fill: var(--graphite); }
+  svg text.ink { fill: var(--ink); font-size: 15px; }
+  svg .axis { stroke: var(--hairline); stroke-width: 1; }
+  svg .ref { stroke: var(--graphite); stroke-width: 1; stroke-dasharray: 3 3; }
+  .row { cursor: pointer; }
+  .row rect.hit { fill: transparent; }
+  .row.on rect.hit { fill: var(--hairline); opacity: .55; }
+  .row:focus-visible rect.hit { stroke: var(--s1); stroke-width: 2; }
+  math { font-size: 1.05em; }
+  .eq { margin: 12px 0; overflow-x: auto; }
+  #tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--paper); font: 13px/1.35 "STIX Two Text", Georgia, serif;
+    padding: 5px 9px; border-radius: 4px; max-width: 260px; opacity: 0; transition: opacity .08s; z-index: 5; }
+  .legend { display: flex; gap: 18px; font-size: 14px; color: var(--graphite); margin: 4px 0; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Manillen</h1>
+  <p class="quiet">What each change to the player is worth, measured in matches on duplicate deals. <a href="https://manillen.daems.me">Play against it</a>.</p>
+
+  <h2>Matches</h2>
+  <p class="quiet">Card points taken by the first player, of the 60 in a deal; every deal is played twice with the sides swapped. Bars are ± 2 standard errors. Select a match to see its deals below.</p>
+  <div id="forest"></div>
+  <div id="hist"></div>
+
+  <h2>Weighing the drawn deals</h2>
+  <p>A player draws deals <math><mi>d</mi></math> uniformly from those that fit the forced plays, solves each with open cards, and plays</p>
+  <div class="eq"><math display="block"><mrow><msup><mi>a</mi><mo>*</mo></msup><mo>=</mo><munder><mi>argmax</mi><mi>a</mi></munder><munder><mo>∑</mo><mi>d</mi></munder><mi>w</mi><mo>(</mo><mi>d</mi><mo>)</mo><mspace width="0.2em"/><msub><mi>V</mi><mi>d</mi></msub><mo>(</mo><mi>a</mi><mo>)</mo><mo>,</mo></mrow></math></div>
+  <p>with <math><mi>w</mi><mo>≡</mo><mn>1</mn></math> for plain search. The weighted player asks how likely the trump named and the cards played so far are under <math><mi>d</mi></math>:</p>
+  <div class="eq"><math display="block"><mrow><mi>w</mi><mo>(</mo><mi>d</mi><mo>)</mo><mo>∝</mo><msup><mrow><mo>[</mo><msub><mi>π</mi><mtext>trump</mtext></msub><mo>(</mo><mi>t</mi><mo>∣</mo><msubsup><mi>h</mi><mtext>dealer</mtext><mi>d</mi></msubsup><mo>)</mo><munder><mo>∏</mo><mi>k</mi></munder><mi>π</mi><mo>(</mo><msub><mi>c</mi><mi>k</mi></msub><mo>∣</mo><msubsup><mi>h</mi><mrow><msub><mi>s</mi><mi>k</mi></msub><mo>,</mo><mi>k</mi></mrow><mi>d</mi></msubsup><mo>,</mo><mtext>history</mtext><mo>)</mo><mo>]</mo></mrow><mi>β</mi></msup></mrow></math></div>
+  <p class="quiet">Both <math><mi>π</mi></math> are networks fitted to the plain search player's own choices in self-play. "240 drawn, 30 solved": the 30 are resampled from the 240 in proportion to <math><mi>w</mi></math>.</p>
+
+  <h2>The card policy</h2>
+  <p class="quiet">Log-loss on held-out deals (nats per decision with more than one legal card), by epoch, for networks fitted to more and more self-play. The dashed line is a player for whom every legal card is equally likely.</p>
+  <div id="curves"></div>
+
+  <h2>What a deal seemed worth, and what it was</h2>
+  <p class="quiet">Before the first card: what a seat believed the deal was worth to its side (card points above 30, from 30 drawn deals), against what its side then took. Plain search players, 600 deals. On the dashed line belief and outcome agree.</p>
+  <div class="legend"><span><i style="background:var(--s1)"></i>the dealer's partner</span><span><i style="background:var(--s2)"></i>the dealer's opponents</span></div>
+  <div id="calib"></div>
+</main>
+<div id="tip"></div>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  for (const k of kids) e.append(k);
+  return e;
+};
+const tip = document.getElementById('tip');
+const hover = (node, text) => {
+  node.addEventListener('pointermove', e => {
+    tip.textContent = text; tip.style.opacity = 1;
+    tip.style.left = Math.min(innerWidth - 270, e.clientX + 14) + 'px'; tip.style.top = e.clientY + 14 + 'px';
+  });
+  node.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
+};
+const svg = (id, w, h) => { const s = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img' }); document.getElementById(id).replaceChildren(s); return s; };
+const f2 = x => x.toFixed(2);
+
+let selected = -1;
+function draw(data) {
+  // the drawings are made at the width of the page, so the text keeps its size on a phone
+  const W = Math.max(340, Math.min(760, document.querySelector('main').clientWidth - 32)), narrow = W < 600;
+  // ---- matches: one row each, on one axis ------------------------------------------------
+  const M = data.matches, rowH = narrow ? 64 : 46, x0 = narrow ? 6 : 20, x1 = W - (narrow ? 6 : 20);
+  const lo = 29, hi = 34, X = v => x0 + (v - lo) / (hi - lo) * (x1 - x0);
+  const s = svg('forest', W, M.length * rowH + 44);
+  const bottom = M.length * rowH + 4;
+  for (let v = lo; v <= hi; v++) {
+    s.append(el('line', { class: v === 30 ? 'ref' : 'axis', x1: X(v), x2: X(v), y1: 0, y2: bottom }));
+    s.append(el('text', { x: X(v), y: bottom + 18, 'text-anchor': 'middle' }, String(v)));
+  }
+  s.append(el('text', { x: x1, y: bottom + 34, 'text-anchor': 'end' }, 'card points of 60'));
+  const rows = M.map((m, i) => {
+    const y = i * rowH, g = el('g', { class: 'row', tabindex: 0, role: 'button' });
+    g.append(el('rect', { class: 'hit', x: 0, y: y + 2, width: W, height: rowH - 4, rx: 4 }));
+    const label = el('text', { class: 'ink', x: x0, y: y + 19 }), rest = `against ${m.b}${m.note ? ', ' + m.note : ''}`;
+    if (narrow) { label.append(m.a); g.append(el('text', { x: x0, y: y + 36 }, rest)); }
+    else label.append(m.a, Object.assign(el('tspan', { style: 'fill: var(--graphite)', dx: 8 }), { textContent: rest }));
+    g.append(label);
+    const my = y + rowH - 13;
+    g.append(el('line', { x1: X(m.mean - 2 * m.se), x2: X(m.mean + 2 * m.se), y1: my, y2: my, stroke: 'var(--s1)', 'stroke-width': 2, 'stroke-linecap': 'round' }));
+    g.append(el('circle', { cx: X(m.mean), cy: my, r: 5, fill: 'var(--s1)', stroke: 'var(--paper)', 'stroke-width': 2 }));
+    hover(g, `${f2(m.mean)} ± ${f2(m.se)} (one standard error), ${m.deals} deals`);
+    g.addEventListener('click', () => pick(i));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(i); } });
+    s.append(g);
+    return g;
+  });
+
+  // ---- the deals of the selected match ---------------------------------------------------
+  function pick(i) {
+    selected = i;
+    rows.forEach((g, j) => g.classList.toggle('on', i === j));
+    const m = M[i], H = 200, base = H - 40, a = 16, b = 104, bw = (x1 - x0) / (b - a + 1);
+    const h = svg('hist', W, H), top = Math.max(...m.hist);
+    h.append(el('text', { class: 'ink', x: x0, y: 14 }, narrow ? 'The deals of the selected match' : `${m.a} against ${m.b}: the deals`));
+    for (let v = a; v <= b; v++) {                       // v: points over the two seatings together
+      const n = m.hist[v], bh = n / top * (base - 30);
+      if (n) {
+        const r = el('rect', { x: x0 + (v - a) * bw + 0.75, y: base - bh, width: bw - 1.5, height: bh, rx: 1.5, fill: 'var(--s1)' });
+        hover(r, `${n} deal${n > 1 ? 's' : ''} with ${v / 2} points (mean of the two seatings)`);
+        h.append(r);
+      }
+      if (v % (narrow ? 16 : 8) === 4) h.append(el('text', { x: x0 + (v - a + .5) * bw, y: base + 16, 'text-anchor': 'middle' }, String(v / 2)));
+    }
+    h.append(el('line', { class: 'axis', x1: x0, x2: x1, y1: base, y2: base }));
+    h.append(el('line', { class: 'ref', x1: x0 + (60 - a + .5) * bw, x2: x0 + (60 - a + .5) * bw, y1: 24, y2: base }));
+    h.append(el('text', { x: x1, y: base + 32, 'text-anchor': 'end' }, 'card points of 60, mean of the two seatings'));
+  }
+  pick(selected < 0 ? M.length - 1 : selected);
+
+  // ---- learning curves -------------------------------------------------------------------
+  {
+    const N = data.nets, H = 300, L = 46, R = W - (narrow ? 92 : 150), T = 14, B = H - 34;
+    const c = svg('curves', W, H), epochs = Math.max(...N.map(n => n.log.length));
+    const uni = N[N.length - 1].log[0].uniform_nll, ymax = 1.25, ymin = 0.4;
+    const X = e => L + (e - 1) / (epochs - 1) * (R - L), Y = v => T + (ymax - v) / (ymax - ymin) * (B - T);
+    for (let v = 0.4; v <= 1.21; v += 0.2) {
+      c.append(el('line', { class: 'axis', x1: L, x2: R, y1: Y(v), y2: Y(v) }));
+      c.append(el('text', { x: L - 8, y: Y(v) + 4, 'text-anchor': 'end' }, v.toFixed(1)));
+    }
+    for (let e = 10; e <= epochs; e += 10) c.append(el('text', { x: X(e), y: B + 18, 'text-anchor': 'middle' }, String(e)));
+    c.append(el('text', { x: R, y: B + 32, 'text-anchor': 'end' }, 'epoch'));
+    c.append(el('text', { x: L - 36, y: T + 2 }, 'nats'));
+    c.append(el('line', { class: 'ref', x1: L, x2: R, y1: Y(uni), y2: Y(uni) }));
+    c.append(el('text', narrow ? { x: R, y: Y(uni) - 6, 'text-anchor': 'end' } : { x: R + 8, y: Y(uni) + 4 }, 'every legal card alike'));
+    N.forEach((n, i) => {
+      const col = `var(--seq${Math.min(4, i + 1 + Math.max(0, 3 - N.length))})`;
+      c.append(el('polyline', { points: n.log.map(e => `${X(e.epoch)},${Y(e.val_nll)}`).join(' '), fill: 'none', stroke: col, 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+      const last = n.log[n.log.length - 1];
+      c.append(el('text', { class: 'ink', x: X(last.epoch) + 8, y: Y(last.val_nll) + 5 }, `${n.deals.toLocaleString('en')}${narrow ? '' : ' deals'}`));
+      for (const e of n.log) {
+        const dot = el('circle', { cx: X(e.epoch), cy: Y(e.val_nll), r: 7, fill: 'transparent' });
+        hover(dot, `${n.deals.toLocaleString('en')} deals, epoch ${e.epoch}: ${e.val_nll.toFixed(3)} nats, same card as the search ${(100 * e.val_acc).toFixed(0)}%, ${e.val_regret.toFixed(2)} points lost per decision`);
+        c.append(dot);
+      }
+    });
+  }
+
+  // ---- belief against outcome ------------------------------------------------------------
+  {
+    const D = data.doubling, H = narrow ? 320 : 360, L = 46, R = W - (narrow ? 8 : 20), T = 10, B = H - 36, a = -16, b = 22;
+    const c = svg('calib', W, H);
+    const X = v => L + (v - a) / (b - a) * (R - L), Y = v => B - (v - a) / (b - a) * (B - T);
+    for (let v = -15; v <= 20; v += 5) {
+      c.append(el('line', { class: 'axis', x1: X(v), x2: X(v), y1: T, y2: B }));
+      c.append(el('line', { class: 'axis', x1: L, x2: R, y1: Y(v), y2: Y(v) }));
+      c.append(el('text', { x: X(v), y: B + 18, 'text-anchor': 'middle' }, (v > 0 ? '+' : '') + v));
+      c.append(el('text', { x: L - 8, y: Y(v) + 4, 'text-anchor': 'end' }, (v > 0 ? '+' : '') + v));
+    }
+    c.append(el('line', { class: 'ref', x1: X(a), y1: Y(a), x2: X(b), y2: Y(b) }));
+    c.append(el('text', { x: R, y: B + 32, 'text-anchor': 'end' }, 'believed, card points above 30'));
+    c.append(el('text', { x: L + 6, y: T + 12 }, 'taken, card points above 30'));
+    for (const p of D) {
+      const col = p.side === 'dealer' ? 'var(--s1)' : 'var(--s2)';
+      c.append(el('line', { x1: X(p.est), x2: X(p.est), y1: Y(p.got - 2 * p.se), y2: Y(p.got + 2 * p.se), stroke: col, 'stroke-width': 2, 'stroke-linecap': 'round' }));
+      const dot = el('circle', { cx: X(p.est), cy: Y(p.got), r: 5, fill: col, stroke: 'var(--paper)', 'stroke-width': 2 });
+      hover(dot, `${p.side === 'dealer' ? "dealer's partner" : "dealer's opponents"}: believed ${p.est > 0 ? '+' : ''}${p.est.toFixed(1)}, took ${p.got > 0 ? '+' : ''}${p.got.toFixed(1)} ± ${p.se.toFixed(1)} (${p.n} seats)`);
+      c.append(dot);
+    }
+  }
+}
+fetch('data.json').then(r => r.json()).then(data => {
+  draw(data);
+  let wait;
+  addEventListener('resize', () => { clearTimeout(wait); wait = setTimeout(() => draw(data), 150); });
+});
+</script>
+</body>
+</html>

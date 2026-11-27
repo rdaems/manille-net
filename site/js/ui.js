@@ -1,5 +1,5 @@
-// The table: you sit at the bottom (seat 0), Michele opposite is your partner, Pauline on
-// your left and Ben on your right play against you (the names of Hartenjagen '98).
+// The table: you sit at the bottom (seat 0), your partner opposite, an opponent on your left
+// and one on your right. The three get West Flemish first names, drawn anew for every boom.
 import { Deal, cards, bit, teamOf, suitMask, rng, NOTRUMP, RANKS, POINTS } from './manille.js';
 import { playDeal } from './game.js';
 import * as sound from './sound.js';
@@ -7,7 +7,21 @@ import * as sound from './sound.js';
 const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const quick = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const WHO = ['Jij', 'Pauline', 'Michele', 'Ben'];
+// First names you meet at a card table in West Flanders among people of 40 to 90.
+const NAMES = ['Roger', 'Willy', 'André', 'Noël', 'Marcel', 'Gilbert', 'Daniël', 'Germain', 'Urbain', 'Etienne', 'Gaston',
+  'Maurice', 'Lucien', 'Norbert', 'Omer', 'Cyriel', 'Achiel', 'Remi', 'Gerard', 'Wilfried', 'Hubert', 'Jozef', 'Antoon',
+  'Luc', 'Marc', 'Johan', 'Geert', 'Dirk', 'Patrick', 'Filip', 'Koen', 'Kurt', 'Franky', 'Eddy', 'Freddy', 'Rudy', 'Ronny',
+  'Rik', 'Stefaan', 'Dominiek', 'Lieven', 'Danny', 'Guido', 'Pol', 'Carl', 'Wim', 'Bart', 'Kris',
+  'Godelieve', 'Maria', 'Rosa', 'Jeannine', 'Monique', 'Christiane', 'Rita', 'Nicole', 'Martine', 'Lutgart', 'Greta',
+  'Marleen', 'Mieke', 'Hilde', 'Katrien', 'Carine', 'Sabine', 'Nadine', 'Linda', 'Sonja', 'Ingrid', 'Bea', 'Lieve', 'Magda',
+  'Agnes', 'Simonne', 'Denise', 'Yvonne', 'Mariette', 'Paula', 'Cecile', 'Annie', 'Erna', 'Trees', 'Gerda', 'Veerle',
+  'Griet', 'Els', 'Chantal', 'Dorine', 'Francine', 'Jacqueline', 'Odette', 'Georgette', 'Mia', 'Ann'];
+function threeNames() {
+  const pool = NAMES.slice(), out = [];
+  while (out.length < 3) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return out;
+}
+const WHO = ['Jij', '', '', ''];                         // left, partner, right: filled from the game
 const SUIT = ['schoppen', 'harten', 'klaveren', 'ruiten'];
 const TARGET = 121;
 const OFFER_MS = 5000;                                   // how long the doubling button stays
@@ -37,9 +51,16 @@ const think = (what, view) => new Promise(resolve => {
 
 // ---- what is kept between visits -----------------------------------------------------------
 const KEY = 'manillen-1';
-const fresh = games => ({ score: [0, 0], deals: [], dealer: Math.floor(Math.random() * 4), carry: 1, games });
+const fresh = games => ({ score: [0, 0], deals: [], dealer: Math.floor(Math.random() * 4), carry: 1, games, names: threeNames() });
 let game = fresh([]);
 try { const g = JSON.parse(localStorage.getItem(KEY)); if (g && g.score) game = { games: [], ...g }; } catch {}
+function seatNames() {                                   // the names on the plates, in the texts, on the start screen
+  if (!Array.isArray(game.names) || game.names.length !== 3) game.names = threeNames();
+  game.names.forEach((n, i) => { WHO[i + 1] = n; });
+  document.querySelectorAll('.seat').forEach(el => { el.querySelector('.who').textContent = WHO[+el.dataset.seat]; });
+  $('#home .sub').textContent = `Jij en ${WHO[2]} tegen ${WHO[1]} en ${WHO[3]}.`;
+}
+seatNames();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(game)); } catch {} };
 
 // ---- drawing -------------------------------------------------------------------------------
@@ -95,7 +116,7 @@ async function say(seat, html, ms = 1150) {
 const SLOT = [[0, 0.3, 0], [-0.66, 0, -7], [0, -0.3, 0], [0.66, 0, 7]];
 function slot(seat) {
   const [x, y, r] = SLOT[seat];
-  return `translate(calc(var(--cw) * ${x}), calc(var(--ch) * ${y})) rotate(${(r + (Math.random() * 8 - 4)).toFixed(1)}deg)`;
+  return `translate(calc(var(--cw) * ${x}), calc(var(--cw) * var(--ratio) * ${y})) rotate(${(r + (Math.random() * 8 - 4)).toFixed(1)}deg)`;
 }
 // A card comes from `from` (a point on the page) and drops on its place in the trick: it
 // starts a little larger with a wide shadow, as if held above the table, and lands.
@@ -124,8 +145,11 @@ async function sweep(winner) {
 }
 
 // ---- asking you ------------------------------------------------------------------------------
-function askDialog(html) {
+// `clear`: the table stays as it is behind the question (no dimming) and the question sits
+// above your cards, for the one question you answer by looking at them.
+function askDialog(html, clear = false) {
   const dlg = $('#ask');
+  dlg.classList.toggle('clear', clear);
   dlg.firstElementChild.innerHTML = html;
   dlg.showModal();
   return new Promise(resolve => {
@@ -141,7 +165,7 @@ async function yourTrump() {
   status('');
   const v = await askDialog(`<h2>Jij deelt. Wat wordt troef?</h2>
     <div class="row">${[0, 1, 2, 3].map(s => `<button class="btn${isRed(s) ? ' red' : ''}" data-v="${s}" aria-label="${SUIT[s]}">${suitSvg(s)}</button>`).join('')}
-    <button class="btn" data-v="4">Zonder troef <small>telt dubbel</small></button></div>`);
+    <button class="btn" data-v="4">Zonder troef <small>telt dubbel</small></button></div>`, true);
   return +v;
 }
 
@@ -293,7 +317,7 @@ async function afterDeal(r) {
     <div class="row"><button class="btn main" data-v="1">${over ? 'Nieuwe boom' : 'Volgend spel'}</button></div>`);
   if (over) {
     game.games.push({ day: new Date().toISOString().slice(0, 10), score: game.score });
-    game = fresh(game.games); save();
+    game = fresh(game.games); save(); seatNames();
   }
 }
 
@@ -338,7 +362,7 @@ function showLast() {
 
 function showRules() {
   const dlg = sheet(`<h2>Regels</h2><div class="rules">
-    <p>Vier spelers, twee tegen twee, 32 kaarten. Jij speelt met Michele, tegenover je, tegen Pauline en Ben. Wie deelt kiest troef, of speelt zonder troef (dan telt het spel dubbel). De speler links van de deler komt uit.</p>
+    <p>Vier spelers, twee tegen twee, 32 kaarten. Jij speelt met ${WHO[2]}, tegenover je, tegen ${WHO[1]} en ${WHO[3]}. Wie deelt kiest troef, of speelt zonder troef (dan telt het spel dubbel). De speler links van de deler komt uit.</p>
     <h3>De kaarten</h3>
     <div class="mini"></div>
     <p>Van sterk naar zwak, met de punten eronder. De 10 (de manille) is de hoogste kaart. Samen 60 punten per spel.</p>
@@ -351,7 +375,7 @@ function showRules() {
     <p>De tegenpartij van de deler mag meegaan (het spel telt dubbel), de ploeg van de deler mag dan tegengaan (nog eens dubbel). De knop daarvoor staat enkele seconden boven je kaarten.</p>
     <p>Je mag een kaart al klaarleggen voor je aan de beurt bent: tik erop, en ze wordt gespeeld zodra het mag.</p>
     <h3>De computer</h3>
-    <p>Pauline, Michele en Ben zien alleen hun eigen kaarten en wat er gevallen is. Ze leiden daaruit af wat de anderen kunnen hebben, wegen de mogelijke verdelingen met wat ze van duizenden eerdere spellen geleerd hebben, en spelen de kaart die gemiddeld het meeste opbrengt.</p>
+    <p>${WHO[1]}, ${WHO[2]} en ${WHO[3]} zien alleen hun eigen kaarten en wat er gevallen is. Ze leiden daaruit af wat de anderen kunnen hebben, wegen de mogelijke verdelingen met wat ze van duizenden eerdere spellen geleerd hebben, en spelen de kaart die gemiddeld het meeste opbrengt.</p>
   </div>`);
   dlg.querySelector('.mini').append(...[7, 6, 5, 4, 3, 2, 1, 0].map(r => {
     const f = document.createElement('figure');
@@ -393,7 +417,7 @@ $('#record').textContent = record();
 
 async function start(anew) {
   sound.wake();
-  if (anew) { game = fresh(game.games); save(); }
+  if (anew) { if (going) game = fresh(game.games); else game = { ...fresh(game.games), names: game.names }; save(); seatNames(); }
   $('#home').hidden = true; $('#table').hidden = false;
   for (;;) await afterDeal(await oneDeal());
 }

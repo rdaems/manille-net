@@ -80,7 +80,14 @@ replaces deep search, which is the job of the net.
     and never the word "pass";
   - "keep it reasonably classic": green table, the classic card faces (English letters are
     fine), a neat typeface (he called a handwriting font sloppy);
-  - the players are named as in Hartenjagen '98: Pauline (left), Michele (your partner), Ben;
+  - the three other players get first names drawn at random, per boom, from typical West
+    Flemish names of people of 40 to 90 (`NAMES` in `ui.js`; first he asked for the names of
+    Hartenjagen '98, then for these); the names of the left and right players stand on the
+    outside of their cards and do not move when the hand shrinks;
+  - **a card is defined once**: `cardEl()` in `ui.js` and `.card` in `style.css` (width `--cw`,
+    height and white margin follow from it); every place that shows a card sets `--cw` and
+    nothing else. The faces come without their own outline (`tools/make-cards.py`);
+  - when you choose trump your cards are not dimmed and the question sits above them;
   - the trump symbol sits on the dealer's name plate, with the multiplier;
   - cards drop onto the table (start larger with a wide shadow, land), brisk: nothing that
     feels like waiting; sound effects (made in `sound.js`, no files), with a mute switch;

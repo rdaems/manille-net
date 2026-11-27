@@ -3,7 +3,7 @@
 //! A card is `8 * suit + rank`; the rank is the strength inside the suit:
 //! ```text
 //! rank   0  1  2  3  4  5  6  7
-//! card   7  8  9  V  D  R  A  10
+//! card   7  8  9  J  Q  K  A  10
 //! points 0  0  0  1  2  3  4  5      60 in the pack
 //! ```
 //! A hand is a 32-bit mask. Seats run clockwise 0 1 2 3; seats 0 and 2 are team 0.
@@ -13,7 +13,7 @@ pub const NOTRUMP: u8 = 4;
 /// "No card" / "no suit" / "no seat".
 pub const NONE: u8 = 255;
 pub const SUITS: [&str; 4] = ["♠", "♥", "♣", "♦"];
-pub const RANKS: [&str; 8] = ["7", "8", "9", "V", "D", "R", "A", "10"];
+pub const RANKS: [&str; 8] = ["7", "8", "9", "J", "Q", "K", "A", "10"];
 
 #[inline(always)]
 pub fn bit(c: u8) -> u32 {

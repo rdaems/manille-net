@@ -74,10 +74,24 @@ replaces deep search, which is the job of the net.
   Rembert said yes to pushing on 2026-11-26. Nothing private goes in the repo (no addresses,
   no keys; `outputs/`, `runs/` and `.cache/` are ignored).
 - The site is public on the tunnel since 2026-11-26 (his yes), ungated, noindex.
-- What he asked for on the page, so it is not undone: the doubling question is a small
-  button above the hand that runs out after five seconds (no popup, and never the word
-  "pass"); cards carry the French letters V D R; a neat typeface (he called the handwriting
-  font sloppy); a game goes to 121 and finished games are kept; cards can be set ready before
-  your turn (pre-moves); no running "this deal: us 7, them 8" line.
+- What he asked for on the page, so it is not undone (2026-11-26 and 27):
+  - the doubling question is a small button above the hand that runs out after five seconds,
+    has a cross to click it away, and stands still while the pointer rests on it; no popup,
+    and never the word "pass";
+  - "keep it reasonably classic": green table, the classic card faces (English letters are
+    fine), a neat typeface (he called a handwriting font sloppy);
+  - the players are named as in Hartenjagen '98: Pauline (left), Michele (your partner), Ben;
+  - the trump symbol sits on the dealer's name plate, with the multiplier;
+  - cards drop onto the table (start larger with a wide shadow, land), brisk: nothing that
+    feels like waiting; sound effects (made in `sound.js`, no files), with a mute switch;
+  - a start screen with "Nieuw spel" and "Verder spelen"; installable as an app
+    (`manifest.json`, `sw.js`, `icons/`);
+  - it must work on a phone both ways up and on a desktop: sizes come from one `--cw`;
+  - a game goes to 121 and finished games are kept; pre-moves; no running "this deal: us 7,
+    them 8" line.
+- **Change the page in a copy, not in `site/`:** `rsync -a --delete site/ ~/.cache/manillen-shots/next/`,
+  edit there, test with `-e URL=http://localhost:8124/` (see `play.py`) at 390x760, 780x360
+  and 1280x800, then rsync back. `site/cards/*.webp` are made by `tools/make-cards.py`
+  (Byron Knoll's public-domain deck).
 - Next steps and what was measured: this project's Claude memory,
   `~/.claude/projects/-home-rembert-research-manille-net/memory/`.

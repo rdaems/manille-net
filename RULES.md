@@ -7,8 +7,8 @@ are house rules, and Rembert decides them.
 
 ## Cards
 
-32 cards, 7 to ace in four suits. Strength in a suit: 10 (the manille), A, R, D, V, 9, 8, 7 (roi, dame, valet: the cards carry
-the French letters). Points: 10 = 5, A = 4, R = 3, D = 2, V = 1, the rest 0. That is 60 in the pack. No points for
+32 cards, 7 to ace in four suits. Strength in a suit: 10 (the manille), A, K, Q, J, 9, 8, 7 (the page shows the classic English
+card faces). Points: 10 = 5, A = 4, K = 3, Q = 2, J = 1, the rest 0. That is 60 in the pack. No points for
 tricks.
 
 ## The deal

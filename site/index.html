@@ -4,8 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#273035">
+<meta name="theme-color" content="#17663a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Manillen">
 <title>Manillen</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preload" href="fonts/bitter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -17,37 +23,46 @@
   <symbol id="s3" viewBox="0 0 32 32"><path d="M16 1.5 28 16 16 30.5 4 16z"/></symbol>
 </svg>
 
-<main id="table">
+<!-- the start screen -->
+<section id="home">
+  <div class="fan" aria-hidden="true"></div>
+  <h1>Manillen</h1>
+  <p class="sub">Jij en Michele tegen Pauline en Ben.</p>
+  <div class="choices">
+    <button class="btn main" id="continue" hidden>Verder spelen <small></small></button>
+    <button class="btn main" id="new">Nieuw spel</button>
+    <button class="btn" id="homeRules">Regels</button>
+    <button class="btn" id="install" hidden>Zet op je startscherm</button>
+  </div>
+  <p class="record" id="record"></p>
+</section>
+
+<!-- the table -->
+<main id="table" hidden>
   <header>
-    <button id="score" aria-label="Scorebord openen">
-      <span class="side"><small>wij</small><b id="us">0</b></span>
-      <span id="contract"></span>
-      <span class="side"><b id="them">0</b><small>zij</small></span>
-    </button>
+    <button id="score" aria-label="Scorebord openen"><span>wij <b id="us">0</b></span><span>zij <b id="them">0</b></span></button>
+    <button id="menuBtn">Menu</button>
   </header>
 
-  <section id="north" class="seat" data-seat="2"><div class="who">Maat</div><div class="backs"></div><div class="say"></div></section>
-  <section id="west" class="seat" data-seat="1"><div class="who">Links</div><div class="backs"></div><div class="say"></div></section>
-  <section id="east" class="seat" data-seat="3"><div class="who">Rechts</div><div class="backs"></div><div class="say"></div></section>
+  <section class="seat" id="north" data-seat="2"><div class="plate"><span class="who">Michele</span><span class="badge"></span></div><div class="backs"></div><div class="say"></div></section>
+  <section class="seat" id="west" data-seat="1"><div class="plate"><span class="who">Pauline</span><span class="badge"></span></div><div class="backs"></div><div class="say"></div></section>
+  <section class="seat" id="east" data-seat="3"><div class="plate"><span class="who">Ben</span><span class="badge"></span></div><div class="backs"></div><div class="say"></div></section>
 
-  <section id="middle">
-    <div id="trick"></div>
-  </section>
+  <section id="middle"><div id="trick"></div></section>
 
   <div id="line">
     <p id="status" role="status" aria-live="polite"></p>
     <div id="offer" hidden><button class="go"></button><button class="x" aria-label="Niet doen">×</button><i></i></div>
   </div>
-  <section id="south" class="seat" data-seat="0"><div class="say"></div><div id="hand"></div></section>
-
-  <nav>
-    <button id="lastBtn" hidden>Vorige slag</button>
-    <button id="rulesBtn">Regels</button>
-  </nav>
+  <section class="seat" id="south" data-seat="0">
+    <div class="plate"><span class="who">Jij</span><span class="badge"></span><button id="lastBtn" hidden>Vorige slag</button></div>
+    <div id="hand"></div>
+    <div class="say"></div>
+  </section>
 </main>
 
-<dialog id="ask"><div class="slate"></div></dialog>
-<dialog id="sheet"><div class="slate"></div></dialog>
+<dialog id="ask"><div class="panel"></div></dialog>
+<dialog id="sheet"><div class="panel"></div></dialog>
 
 <script type="module" src="js/ui.js"></script>
 </body>

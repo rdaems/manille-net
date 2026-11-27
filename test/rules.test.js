@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { legal, beats, dealScore, Deal, rng, cards, bit, count, higher, suitMask, NOTRUMP, RANKS, SUITS } from '../site/js/manille.js';
 
-// "♠10 ♥V" -> mask
+// "♠10 ♥J" -> mask
 const C = s => SUITS.indexOf(s[0]) * 8 + RANKS.indexOf(s.slice(1));
 const H = s => s.trim().split(/\s+/).reduce((m, x) => m | bit(C(x)), 0);
 const names = m => cards(m).map(c => SUITS[c >> 3] + RANKS[c & 7]).join(' ');
@@ -12,11 +12,11 @@ const ok = (hand, trump, n, led, win, partner, want) =>
 
 test('ranking: 10 over ace over king', () => {
   assert.ok(beats(C('♠10'), C('♠A'), He));
-  assert.ok(beats(C('♠A'), C('♠R'), He));
-  assert.ok(!beats(C('♠9'), C('♠V'), He));
+  assert.ok(beats(C('♠A'), C('♠K'), He));
+  assert.ok(!beats(C('♠9'), C('♠J'), He));
   assert.ok(beats(C('♥7'), C('♠10'), He), 'a trump takes a plain card');
   assert.ok(!beats(C('♣10'), C('♠7'), He), 'another plain suit never takes');
-  assert.equal(names(higher(C('♦R'))), '♦A ♦10');
+  assert.equal(names(higher(C('♦K'))), '♦A ♦10');
   assert.equal(names(higher(C('♦10'))), '');
 });
 
@@ -25,9 +25,9 @@ test('leading: anything', () => {
 });
 
 test('following: over an opponent if possible, free under the partner', () => {
-  ok('♠7 ♠R ♠10 ♥8', He, 1, S, '♠D', false, '♠R ♠10');
-  ok('♠7 ♠V ♥8', He, 1, S, '♠D', false, '♠7 ♠V');
-  ok('♠7 ♠R ♠10 ♥8', He, 2, S, '♠D', true, '♠7 ♠R ♠10');
+  ok('♠7 ♠K ♠10 ♥8', He, 1, S, '♠Q', false, '♠K ♠10');
+  ok('♠7 ♠J ♥8', He, 1, S, '♠Q', false, '♠7 ♠J');
+  ok('♠7 ♠K ♠10 ♥8', He, 2, S, '♠Q', true, '♠7 ♠K ♠10');
 });
 
 test('following a plain suit that an opponent trumped: any card of the suit', () => {
@@ -35,25 +35,25 @@ test('following a plain suit that an opponent trumped: any card of the suit', ()
 });
 
 test('trumps led: over an opponent if possible', () => {
-  ok('♥7 ♥A ♠10', He, 1, He, '♥R', false, '♥A');
-  ok('♥7 ♥V ♠10', He, 1, He, '♥R', false, '♥7 ♥V');
+  ok('♥7 ♥A ♠10', He, 1, He, '♥K', false, '♥A');
+  ok('♥7 ♥J ♠10', He, 1, He, '♥K', false, '♥7 ♥J');
 });
 
 test('void, opponent holds the trick: must trump', () => {
-  ok('♥7 ♥A ♣10 ♦8', He, 1, S, '♠D', false, '♥7 ♥A');
-  ok('♣10 ♦8', He, 1, S, '♠D', false, '♣10 ♦8');
+  ok('♥7 ♥A ♣10 ♦8', He, 1, S, '♠Q', false, '♥7 ♥A');
+  ok('♣10 ♦8', He, 1, S, '♠Q', false, '♣10 ♦8');
 });
 
 test('void, opponent trumped: overtrump, else throw a plain card, never undertrump', () => {
-  ok('♥7 ♥A ♣10 ♦8', He, 2, S, '♥R', false, '♥A');
-  ok('♥7 ♥V ♣10 ♦8', He, 2, S, '♥R', false, '♣10 ♦8');
-  ok('♥7 ♥V', He, 2, S, '♥R', false, '♥7 ♥V');
+  ok('♥7 ♥A ♣10 ♦8', He, 2, S, '♥K', false, '♥A');
+  ok('♥7 ♥J ♣10 ♦8', He, 2, S, '♥K', false, '♣10 ♦8');
+  ok('♥7 ♥J', He, 2, S, '♥K', false, '♥7 ♥J');
 });
 
 test('void, partner holds the trick: free, but no undertrump', () => {
-  ok('♥7 ♥A ♣10 ♦8', He, 2, S, '♠D', true, '♥7 ♥A ♣10 ♦8');
-  ok('♥7 ♥A ♣10 ♦8', He, 3, S, '♥R', true, '♥A ♣10 ♦8');
-  ok('♥7 ♥V', He, 3, S, '♥R', true, '♥7 ♥V');
+  ok('♥7 ♥A ♣10 ♦8', He, 2, S, '♠Q', true, '♥7 ♥A ♣10 ♦8');
+  ok('♥7 ♥A ♣10 ♦8', He, 3, S, '♥K', true, '♥A ♣10 ♦8');
+  ok('♥7 ♥J', He, 3, S, '♥K', true, '♥7 ♥J');
 });
 
 test('no trump: follow and go over, otherwise free', () => {

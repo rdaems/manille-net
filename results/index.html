@@ -46,6 +46,12 @@
   <h1>Manillen</h1>
   <p class="quiet">What each change to the player is worth, measured in matches on duplicate deals. <a href="https://manillen.daems.me">Play against it</a>.</p>
 
+  <h2>Learning from its own play</h2>
+  <p class="quiet">Generation 0 is plain search. The networks of generation <math><mi>g</mi></math> are fitted to 30,000 deals of generation <math><mi>g</mi><mo>−</mo><mn>1</mn></math> playing itself, and the generation-<math><mi>g</mi></math> player is search that weighs its deals with them. Rating: Elo, from the chance of winning a game to 121 (games played out of deals redrawn from 1000-deal matches of everybody against everybody). Bars are ± 2 standard errors.</p>
+  <div id="elo"></div>
+  <p class="quiet">The same scale with the two players that do not search:</p>
+  <div id="scale"></div>
+
   <h2>Matches</h2>
   <p class="quiet">Card points taken by the first player, of the 60 in a deal; every deal is played twice with the sides swapped. Bars are ± 2 standard errors. Select a match to see its deals below.</p>
   <div id="forest"></div>
@@ -91,6 +97,58 @@ let selected = -1;
 function draw(data) {
   // the drawings are made at the width of the page, so the text keeps its size on a phone
   const W = Math.max(340, Math.min(760, document.querySelector('main').clientWidth - 32)), narrow = W < 600;
+  // ---- ratings ---------------------------------------------------------------------------
+  if (data.ratings && data.ratings.length) {
+    const R = data.ratings, gens = R.filter(r => r.generation !== null), P = data.pairs;
+    const versus = (id, other) => {
+      const q = P.find(q => q.a === id && q.b === other);
+      return q ? `; wins ${(100 * q.p).toFixed(0)}% of games against ${other === 'search' ? 'plain search' : other.replace('g', 'generation ')} (${q.points.toFixed(2)} of 60 card points a deal)` : '';
+    };
+    {
+      const H = 300, L = 52, Rr = W - 24, T = 16, B = H - 40;
+      const c = svg('elo', W, H);
+      const hiE = Math.max(150, ...gens.map(r => r.elo + 2 * r.se)) + 20, loE = Math.min(-40, ...gens.map(r => r.elo - 2 * r.se) ) - 10;
+      const n = Math.max(4, gens[gens.length - 1].generation);
+      const X = g => L + 30 + g / n * (Rr - L - 60), Y = v => T + (hiE - v) / (hiE - loE) * (B - T);
+      for (let v = Math.ceil(loE / 50) * 50; v <= hiE; v += 50) {
+        c.append(el('line', { class: v === 0 ? 'ref' : 'axis', x1: L, x2: Rr, y1: Y(v), y2: Y(v) }));
+        c.append(el('text', { x: L - 8, y: Y(v) + 4, 'text-anchor': 'end' }, (v > 0 ? '+' : '') + v));
+      }
+      for (let g = 0; g <= n; g++) c.append(el('text', { x: X(g), y: B + 18, 'text-anchor': 'middle' }, g === 0 ? (narrow ? '0' : 'plain search') : String(g)));
+      c.append(el('text', { x: Rr, y: B + 34, 'text-anchor': 'end' }, 'generation'));
+      c.append(el('text', { x: L - 44, y: T - 2 }, 'Elo'));
+      c.append(el('polyline', { points: gens.map(r => `${X(r.generation)},${Y(r.elo)}`).join(' '), fill: 'none', stroke: 'var(--s1)', 'stroke-width': 2 }));
+      for (const r of gens) {
+        if (r.se) c.append(el('line', { x1: X(r.generation), x2: X(r.generation), y1: Y(r.elo - 2 * r.se), y2: Y(r.elo + 2 * r.se), stroke: 'var(--s1)', 'stroke-width': 2, 'stroke-linecap': 'round' }));
+        const dot = el('circle', { cx: X(r.generation), cy: Y(r.elo), r: 6, fill: 'var(--s1)', stroke: 'var(--paper)', 'stroke-width': 2 });
+        const prev = r.generation > 1 ? versus(r.id, 'g' + (r.generation - 1)) : '';
+        hover(dot, `${r.label}: ${r.elo >= 0 ? '+' : ''}${r.elo.toFixed(0)}${r.se ? ' ± ' + r.se.toFixed(0) : ''}${versus(r.id, 'search')}${prev}`);
+        c.append(dot);
+        if (r.generation > 0) c.append(el('text', { class: 'ink', x: X(r.generation), y: Y(r.elo + 2 * r.se) - 8, 'text-anchor': 'middle' }, (r.elo >= 0 ? '+' : '') + r.elo.toFixed(0)));
+      }
+    }
+    {
+      const H = 86, L = 14, Rr = W - 14, y = 40;
+      const c = svg('scale', W, H);
+      const lo = Math.min(...R.map(r => r.elo)) - 60, hi = Math.max(...R.map(r => r.elo)) + 60, X = v => L + (v - lo) / (hi - lo) * (Rr - L);
+      c.append(el('line', { class: 'axis', x1: L, x2: Rr, y1: y, y2: y }));
+      for (let v = Math.ceil(lo / 200) * 200; v <= hi; v += 200) {
+        c.append(el('line', { class: 'axis', x1: X(v), x2: X(v), y1: y - 4, y2: y + 4 }));
+        c.append(el('text', { x: X(v), y: y + 20, 'text-anchor': 'middle' }, (v > 0 ? '+' : '') + v));
+      }
+      const best = gens[gens.length - 1];
+      for (const r of R) {
+        if (r.generation !== null && r.generation > 0 && r !== best) continue;      // the generations are in the figure above
+        c.append(el('line', { x1: X(r.elo - 2 * r.se), x2: X(r.elo + 2 * r.se), y1: y, y2: y, stroke: 'var(--s1)', 'stroke-width': 2, 'stroke-linecap': 'round' }));
+        const dot = el('circle', { cx: X(r.elo), cy: y, r: 5, fill: 'var(--s1)', stroke: 'var(--paper)', 'stroke-width': 2 });
+        hover(dot, `${r.label}: ${r.elo >= 0 ? '+' : ''}${r.elo.toFixed(0)}${r.se ? ' ± ' + r.se.toFixed(0) : ''}${versus('search', r.id)}`);
+        c.append(dot);
+        const right = r === best && best.generation > 0;
+        c.append(el('text', { class: 'ink', x: X(r.elo) + (right ? 8 : 0), y: right ? y + 5 : y - 12, 'text-anchor': right ? 'start' : (X(r.elo) < 80 ? 'start' : 'middle') }, right ? (narrow ? 'gen. ' + best.generation : r.label) : r.label));
+      }
+    }
+  }
+
   // ---- matches: one row each, on one axis ------------------------------------------------
   const M = data.matches, rowH = narrow ? 64 : 46, x0 = narrow ? 6 : 20, x1 = W - (narrow ? 6 : 20);
   const lo = 29, hi = 34, X = v => x0 + (v - lo) / (hi - lo) * (x1 - x0);

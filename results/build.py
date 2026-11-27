@@ -42,7 +42,7 @@ for pattern, a, b, note in MATCHES:
 
 # the networks: held-out log-loss by epoch, one curve per amount of self-play
 nets = []
-for name, deals in (('try', 800), ('p6k', 6000), ('p20k-512', 20000), ('p30k-512', 30000)):
+for name, deals in (('try', 800), ('p6k', 6000), ('p20k-512', 20000), ('g1', 30000)):
     f = ROOT / 'nets' / name / 'policy.json'
     if f.exists():
         j = json.load(open(f))
@@ -63,8 +63,82 @@ for side in ('other', 'dealer'):
         bins.append({'side': side, 'est': st.mean(r['mean'] for r in b), 'got': st.mean(got),
                      'se': st.stdev(got) / math.sqrt(len(got)), 'n': len(b)})
 
-out = {'matches': matches, 'nets': nets, 'doubling': bins}
+# ---- ratings -------------------------------------------------------------------------------
+# outputs/ladder/<A>__<B>.json: everybody against everybody (experiments/ladder.sh). A rating
+# is about winning a game (a boom, first to 121), which is what a player cares about: for each
+# pair the chance that A wins a game is found by playing games out of deals drawn at random
+# from their match (a 30-30 doubles the next deal), and the ratings are the Elo numbers that
+# fit those chances best (weighted least squares on the log-odds, plain search fixed at 0).
+import random
+random.seed(1)
+ELO = 400 / math.log(10)
+
+
+def game_chance(scores, games):
+    """Chance that A reaches 121 first when deals come at random from `scores` (A's signed score per deal)."""
+    won = 0
+    for _ in range(games):
+        a = b = 0; carry = 1
+        while a < 121 and b < 121:
+            s = random.choice(scores)
+            if s > 0: a += s * carry
+            elif s < 0: b -= s * carry
+            carry = 2 if s == 0 else 1
+        won += a >= 121
+    return won / games
+
+
+pairs, names = [], []
+for f in sorted(glob.glob(str(ROOT / 'outputs' / 'ladder' / '*__*.json'))):
+    a, b = pathlib.Path(f).stem.split('__')
+    rows = json.load(open(f))['rows']
+    scores = [r[h]['score'] for r in rows for h in 'ab']
+    p = game_chance(scores, 20000)
+    boot = [game_chance(random.choices(scores, k=len(scores)), 2500) for _ in range(16)]
+    se = max(st.stdev(boot), 0.004)
+    p = min(0.997, max(0.003, p))
+    points = [(r['a']['pointsA'] + r['b']['pointsA']) / 2 for r in rows]
+    pairs.append({'a': a, 'b': b, 'p': p, 'se': se, 'deals': len(rows), 'points': st.mean(points),
+                  'points_se': st.stdev(points) / math.sqrt(len(points))})
+    names += [n for n in (a, b) if n not in names]
+
+ratings = []
+if pairs:
+    order = ['random', 'thumb', 'search'] + sorted((n for n in names if n[0] == 'g'), key=lambda n: int(n[1:]))
+    free = [n for n in order if n != 'search' and n in names]
+    k = len(free)
+    A = [[0.0] * k for _ in range(k)]; rhs = [0.0] * k
+    for q in pairs:
+        y = ELO * math.log(q['p'] / (1 - q['p']))
+        w = 1 / (ELO * q['se'] / (q['p'] * (1 - q['p']))) ** 2
+        x = [0.0] * k
+        if q['a'] in free: x[free.index(q['a'])] = 1.0
+        if q['b'] in free: x[free.index(q['b'])] = -1.0
+        for i in range(k):
+            rhs[i] += w * x[i] * y
+            for j in range(k):
+                A[i][j] += w * x[i] * x[j]
+    # solve A r = rhs and invert A (Gauss-Jordan on [A | rhs | I])
+    M = [A[i] + [rhs[i]] + [1.0 if i == j else 0.0 for j in range(k)] for i in range(k)]
+    for i in range(k):
+        piv = max(range(i, k), key=lambda r: abs(M[r][i])); M[i], M[piv] = M[piv], M[i]
+        d = M[i][i]; M[i] = [v / d for v in M[i]]
+        for r in range(k):
+            if r != i and M[r][i]:
+                f = M[r][i]; M[r] = [v - f * u for v, u in zip(M[r], M[i])]
+    label = {'random': 'random legal card', 'thumb': 'rules of thumb', 'search': 'search'}
+    for n in order:
+        if n not in names: continue
+        i = free.index(n) if n in free else -1
+        ratings.append({'id': n, 'label': label.get(n, f'generation {n[1:]}'), 'generation': int(n[1:]) if n[0] == 'g' else (0 if n == 'search' else None),
+                        'elo': M[i][k] if i >= 0 else 0.0, 'se': math.sqrt(M[i][k + 1 + i]) if i >= 0 else 0.0})
+
+out = {'matches': matches, 'nets': nets, 'doubling': bins, 'ratings': ratings, 'pairs': pairs}
 (ROOT / 'results' / 'data.json').write_text(json.dumps(out, separators=(',', ':')))
 for m in matches:
     print(f"{m['mean']:.2f} ± {m['se']:.2f}  {m['deals']:5d} deals  {m['a']}  against  {m['b']}  {m['note']}")
 print(len(nets), 'networks,', len(bins), 'calibration bins')
+for r in ratings:
+    print(f"{r['elo']:+7.0f} ± {r['se']:.0f}  {r['label']}")
+for q in pairs:
+    print(f"  {q['a']:>7} beats {q['b']:<7} in {100 * q['p']:.1f}% of games (± {100 * q['se']:.1f}); {q['points']:.2f} of 60 card points per deal")

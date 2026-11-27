@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- The picture a chat app shows when the link is shared (share.jpg, 1200 x 630): made from this
+     page by ~/.cache/manillen-shots/share.py. Not linked from the game. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* everything inside the middle square: some apps cut the picture to a square */
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body { display: grid; justify-items: center; align-content: center; text-align: center; }
+  .fan { --cw: 124px; position: relative; width: 560px; height: 262px; }
+  .fan .card { position: absolute; left: 50%; bottom: 0; margin-left: calc(var(--cw) / -2); transform-origin: 50% 190%; }
+  h1 { font-size: 104px; line-height: 1; margin: 44px 0 0; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  p { font-size: 34px; margin: 10px 0 0; color: var(--on-felt-dim); }
+</style>
+<div class="fan"></div>
+<div><h1>Manillen</h1><p>Kaarten tegen de computer</p></div>
+<script>
+  [15, 14, 13, 12, 11, 10, 9, 8].forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'card'; el.style.transform = `rotate(${(i - 3.5) * 9}deg)`;
+    el.innerHTML = `<img src="cards/${c}.webp">`;
+    document.querySelector('.fan').append(el);
+  });
+</script>

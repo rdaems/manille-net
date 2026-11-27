@@ -96,6 +96,9 @@ replaces deep search, which is the job of the net.
   - it must work on a phone both ways up and on a desktop: sizes come from one `--cw`;
   - a game goes to 121 and finished games are kept; pre-moves; no running "this deal: us 7,
     them 8" line.
+- The picture and text a chat app shows for the link are the `og:` tags in `index.html` and
+  `site/share.jpg`, made from `site/share.html` by `~/.cache/manillen-shots/share.py`. Apps keep
+  a link's preview for a long time; give the picture a new file name if it must change again.
 - **Change the page in a copy, not in `site/`:** `rsync -a --delete site/ ~/.cache/manillen-shots/next/`,
   edit there, test with `-e URL=http://localhost:8124/` (see `play.py`) at 390x760, 780x360
   and 1280x800, then rsync back. `site/cards/*.webp` are made by `tools/make-cards.py`
